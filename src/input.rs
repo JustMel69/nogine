@@ -1,5 +1,7 @@
 use std::{sync::RwLock, path::PathBuf};
 
+use super::gl_call;
+
 #[derive(Clone, Copy, Debug)]
 pub enum InputKind {
     Press, Hold, Release
@@ -306,7 +308,10 @@ impl Input {
             glfw::WindowEvent::Refresh => writer.window_in.push(WindowInput::WinRefresh),
             glfw::WindowEvent::Focus(b) => writer.window_in.push(if b { WindowInput::WinFocus } else { WindowInput::WinUnfocus }),
             glfw::WindowEvent::Iconify(b) => writer.window_in.push(if b { WindowInput::WinMinimize } else { WindowInput::WinDeminimize }),
-            glfw::WindowEvent::FramebufferSize(w, h) => writer.window_in.push(WindowInput::FramebufferResize(w as u32, h as u32)),
+            glfw::WindowEvent::FramebufferSize(w, h) => {
+                writer.window_in.push(WindowInput::FramebufferResize(w as u32, h as u32));
+                gl_call!(gl::Viewport(0, 0, w, h));
+            },
             glfw::WindowEvent::FileDrop(p) => writer.window_in.push(WindowInput::FileDrop(p)),
             glfw::WindowEvent::Maximize(b) => writer.window_in.push(if b { WindowInput::WinMaximize } else { WindowInput::WinDemaximize }),
             glfw::WindowEvent::ContentScale(x, y) => writer.window_in.push(WindowInput::ContentScale(x, y)),

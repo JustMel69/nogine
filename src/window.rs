@@ -1,9 +1,11 @@
-use std::sync::mpsc::Receiver;
+use std::{sync::mpsc::Receiver, time::Instant};
 
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, context::Context, input::Input};
+use crate::{Res, input::Input, color::Color4, graphics::Graphics};
+
+use super::gl_call;
 
 #[repr(transparent)]
 pub struct Monitor<'a>(&'a glfw::Monitor);
@@ -53,12 +55,19 @@ impl<'a> WindowCfg<'a> {
         return self;
     }
 
-    pub fn init(self, ctx: &mut Context) -> Res<Window, WindowError> {
-        let (mut window, events) = ctx.glfw.create_window(self.res.0, self.res.1, self.title, self.mode.into()).ok_or(WindowError::CreationFailure)?;
+    pub fn init(self) -> Res<Window, WindowError> {
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        
+        let (mut window, events) = glfw.create_window(self.res.0, self.res.1, self.title, self.mode.into()).ok_or(WindowError::CreationFailure)?;
         window.set_key_polling(true);
         window.make_current();
+        
+        gl::load_with(|x| window.get_proc_address(x) as *const _);
+        gl_call!(gl::Viewport(0, 0, self.res.0 as i32, self.res.1 as i32));
+        
+        Graphics::init();
 
-        return Ok(Window { window, events, main: self.main });
+        return Ok(Window { window, events, main: self.main, glfw });
     }
 }
 
@@ -76,6 +85,7 @@ pub struct Window {
     window: glfw::Window,
     events: Receiver<(f64, glfw::WindowEvent)>,
     main: bool,
+    glfw: glfw::Glfw,
 }
 
 impl Window {
@@ -84,8 +94,8 @@ impl Window {
         !self.window.should_close()
     }
 
-    pub fn handle_events(&mut self, ctx: &mut Context) {
-        ctx.glfw.poll_events();
+    pub fn handle_events(&mut self) {
+        self.glfw.poll_events();
 
         for (_, ev) in glfw::flush_messages(&self.events) {
             Input::push_input(ev, self.main);
@@ -157,5 +167,28 @@ impl Window {
     #[inline]
     pub fn swap_buffers(&mut self) {
         self.window.swap_buffers();
+    }
+
+    pub fn clear_screen(&mut self, color: Color4) {
+        gl_call!(gl::ClearColor(color.0, color.1, color.2, color.3));
+        gl_call!(gl::Clear(gl::COLOR_BUFFER_BIT));
+        Graphics::frame_start();
+    }
+
+    pub fn force_framerate(&self, last_frame: Instant, target_framerate: f64) {
+        assert!(target_framerate > 0.0);
+        
+        let target_ts = 1.0 / target_framerate;
+
+        loop {
+            let ts = last_frame.elapsed().as_secs_f64();
+            if ts > target_ts {
+                return;
+            }
+        }
+    }
+
+    pub fn set_vsync(&mut self, vsync: bool) {
+        self.glfw.set_swap_interval(glfw::SwapInterval::Sync(if vsync { 1 } else { 0 }))
     }
 }
