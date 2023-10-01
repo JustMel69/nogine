@@ -176,7 +176,7 @@ static INPUT: RwLock<Input> = RwLock::new(Input::new());
 pub struct Input {
     window_in: Vec<WindowInput>,
     keyboard_flags: [u64; 7],
-    mouse_in: Vec<(MouseInput, InputKind)>,
+    mouse_flags: u16,
     scroll_in: (f32, f32),
     written_in: String,
     mouse_pos: (f32, f32),
@@ -184,16 +184,16 @@ pub struct Input {
 
 impl Input {
     const fn new() -> Self {
-        Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: (0.0, 0.0), mouse_in: vec![], mouse_pos: (0.0, 0.0) }
+        Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: (0.0, 0.0), mouse_flags: 0, mouse_pos: (0.0, 0.0) }
     }
 
     pub fn flush() {
         let mut writer = INPUT.write().unwrap();
         Self::flush_keyboard(&mut writer);
-        
+        Self::flush_mouse(&mut writer);
+
         writer.window_in.clear();
         writer.written_in.clear();
-        writer.mouse_in.clear();
         writer.scroll_in = (0.0, 0.0);
     }
 
@@ -288,11 +288,57 @@ impl Input {
 
 
 
+    // |>-<·>-<|      Mouse Input      |>-<·>-<| //
 
-    pub fn get_last_mouse_input() -> Option<(MouseInput, InputKind)> {
-        let reader = INPUT.read().unwrap();
-        return reader.mouse_in.last().copied();
+    pub fn mouse(button: MouseInput) -> bool {
+        let x = Self::mouse_state(button);
+        return x == 0b01 || x == 0b11;
     }
+
+    pub fn mouse_pressed(button: MouseInput) -> bool {
+        let x = Self::mouse_state(button);
+        return x == 0b01;
+    }
+
+    pub fn mouse_released(button: MouseInput) -> bool {
+        let x = Self::mouse_state(button);
+        return x == 0b10;
+    }
+
+    pub fn mouse_hold(button: MouseInput) -> bool {
+        let x = Self::mouse_state(button);
+        return x == 0b11;
+    }
+
+    fn mouse_state(button: MouseInput) -> u8 {
+        let reader = INPUT.read().unwrap();
+
+        let bit = button as u8;
+        return ((reader.mouse_flags >> (bit * 2)) & 0b11) as u8;
+    }
+
+    fn flush_mouse(writer: &mut std::sync::RwLockWriteGuard<'_, Input>) {
+        const FLUSH_MASK: u16 = 0x5555; // 0b_01010_0101_0101...
+        let mut x = writer.mouse_flags & FLUSH_MASK;
+        x |= x << 1; // Copy bit B to A
+        writer.mouse_flags = x;
+    }
+
+    fn set_mouse_state(writer: &mut std::sync::RwLockWriteGuard<'_, Input>, mouse: MouseInput, state: InputKind) {
+        let bit = mouse as u8;
+        writer.mouse_flags &= !(0b11 << (bit * 2));
+
+        let state: u16 = match state {
+            InputKind::Press => 0b01,
+            InputKind::Hold => 0b11,
+            InputKind::Release => 0b10,
+        };
+
+        writer.mouse_flags |= state << (bit * 2);
+    }
+
+
+
 
     pub fn get_last_window_input() -> Option<WindowInput> {
         let reader = INPUT.read().unwrap();
@@ -323,7 +369,7 @@ impl Input {
             glfw::WindowEvent::ContentScale(x, y) => writer.window_in.push(WindowInput::ContentScale(x, y)),
             glfw::WindowEvent::CursorPos(x, y) => if is_main { writer.mouse_pos = (x as f32, y as f32) }
 
-            glfw::WindowEvent::MouseButton(k, a, _) => writer.mouse_in.push((k.into(), a.into())),
+            glfw::WindowEvent::MouseButton(k, a, _) => Self::set_mouse_state(&mut writer, k.into(), a.into()),
             glfw::WindowEvent::Scroll(x, y) => writer.scroll_in = (x as f32, y as f32),
             glfw::WindowEvent::Key(k, _, a, _) => Self::set_key_state(&mut writer, k.into(), a.into()),
             glfw::WindowEvent::Char(c) => writer.written_in.push(c),
