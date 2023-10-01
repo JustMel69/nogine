@@ -1,20 +1,21 @@
 use std::time::Instant;
 
-use nogine::{window::WindowCfg, input::Input};
+use nogine::window::WindowCfg;
 
 fn main() {
-    let mut window = WindowCfg::default().main(true).title("Forced Framerate").init().unwrap();
+    // Create Window
+    let mut window = WindowCfg::default().main(true).title("Forced Framerate Example").init().expect("Couldn't open window");
     
     let mut last_frame = Instant::now();
     while window.is_running() {
+        // Get timestep
         let ts = last_frame.elapsed().as_secs_f32();
         last_frame = Instant::now();
-
-        _ = window.handle_events();
         
-        window.set_title(&format!("{} FPS", 1.0 / ts));
+        window.set_title(&format!("Forced Framerate Example | {} FPS", 1.0 / ts));
         
-        Input::flush();
+        // Handle window and force framerate
+        window.handle_events();
         window.force_framerate(last_frame, 60.0);
     }
 }

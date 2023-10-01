@@ -1,10 +1,9 @@
-use nogine::{window::WindowCfg, input::Input};
+use nogine::window::WindowCfg;
 
 fn main() {
-    let mut window = WindowCfg::default().main(true).title("Hello World!").init().unwrap();
+    let mut window = WindowCfg::default().main(true).title("Hello World!").init().expect("Couldn't open window");
     
     while window.is_running() {
-        _ = window.handle_events();
-        Input::flush();
+        window.handle_events();
     }
 }
