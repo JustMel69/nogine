@@ -206,6 +206,12 @@ impl Input {
         return x == 0b01 || x == 0b11;
     }
 
+    pub fn axis(neg: KeyInput, pos: KeyInput) -> i32 {
+        let n = if Self::key(neg) { -1 } else { 0 };
+        let p = if Self::key(pos) { 1 } else { 0 };
+        return n + p;
+    }
+
     pub fn key_pressed(key: KeyInput) -> bool {
         let x = Self::key_state(key);
         return x == 0b01;
