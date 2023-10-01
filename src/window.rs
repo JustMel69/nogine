@@ -140,6 +140,12 @@ impl Window {
     }
 
     #[inline]
+    pub fn aspect_ratio(&self) -> f32 {
+        let (w, h) = self.get_size();
+        return (w as f32) / (h as f32);
+    }
+
+    #[inline]
     pub fn request_attention(&mut self) {
         self.window.request_attention()
     }
