@@ -99,7 +99,7 @@ impl Graphics {
         gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
     }
 
-    pub fn set_cam(pos: Vector2, rot: f32, height: f32) {
+    pub fn set_cam(pos: Vector2, height: f32) {
         assert!(height != 0.0);
 
         let mut writer = GRAPHICS.write().unwrap();
