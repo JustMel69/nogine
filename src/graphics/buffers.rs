@@ -13,7 +13,8 @@ impl GlBuffer {
 
         let mut id = 0;
         gl_call!(gl::GenBuffers(1, &mut id));
-        
+        assert!(id != 0, "Invalid buffer");
+
         Self { id, kind }
     }
 

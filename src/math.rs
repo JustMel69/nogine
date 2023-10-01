@@ -140,33 +140,33 @@ impl Into<Vector2> for (f32, f32) {
 
 #[derive(Clone)]
 pub struct Matrix3x3 {
-    val: [[f32; 3]; 3],
+    rows: [[f32; 3]; 3],
 }
 
 impl Matrix3x3 {
-    pub const IDENTITY: Self = Self { val: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] };
+    pub const IDENTITY: Self = Self { rows: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] };
 
     pub fn translate(&mut self, delta: Vector2) {
-        self.val[0][2] += delta.0;
-        self.val[1][2] += delta.1;
+        self.rows[0][2] += delta.0;
+        self.rows[1][2] += delta.1;
     }
 
     pub fn scale(&mut self, mul: Vector2) {
-        self.val[0][0] *= mul.0;
-        self.val[1][0] *= mul.0;
-        self.val[0][1] *= mul.1;
-        self.val[1][1] *= mul.1;
+        self.rows[0][0] *= mul.0;
+        self.rows[1][0] *= mul.0;
+        self.rows[0][1] *= mul.1;
+        self.rows[1][1] *= mul.1;
     }
 
     pub fn rotate(&mut self, rot: f32) {
-        let x = Vector2(self.val[0][0], self.val[1][0]).rotate(rot);
-        let y = Vector2(self.val[0][1], self.val[1][1]).rotate(rot);
+        let x = Vector2(self.rows[0][0], self.rows[1][0]).rotate(rot);
+        let y = Vector2(self.rows[0][1], self.rows[1][1]).rotate(rot);
 
-        self.val[0][0] = x.0;
-        self.val[1][0] = x.1;
+        self.rows[0][0] = x.0;
+        self.rows[1][0] = x.1;
 
-        self.val[0][1] = y.0;
-        self.val[1][1] = y.1;
+        self.rows[0][1] = y.0;
+        self.rows[1][1] = y.1;
     }
 
     pub fn transform_matrix(pos: Vector2, rot: f32, scale: Vector2) -> Self {
@@ -186,7 +186,7 @@ impl Matrix3x3 {
     }
 
     pub fn ptr(&self) -> *const f32 {
-        return self.val.as_ptr() as *const f32;
+        return self.rows.as_ptr() as *const f32;
     }
 }
 
@@ -197,4 +197,19 @@ pub fn lerp<T: Add<Output = T> + Mul<f32, Output = T>>(a: T, b: T, t: f32) -> T 
 
 pub fn lerp_unclamped<T: Add<Output = T> + Mul<f32, Output = T>>(a: T, b: T, t: f32) -> T {
     return b * t + a * (1.0 - t);
+}
+
+impl Mul for &Matrix3x3 {
+    type Output = Matrix3x3;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut res = Matrix3x3 { rows: [[0.0; 3]; 3] };
+        for i in 0..3 {
+            let (a, b, c) = (self.rows[i][0], self.rows[i][1], self.rows[i][2]);
+            for j in 0..3 {
+                res.rows[i][j] = a * rhs.rows[0][j] + b * rhs.rows[1][j] + c * rhs.rows[2][j];
+            }
+        }
+        return res;
+    }
 }

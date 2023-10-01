@@ -1,61 +1,49 @@
 use std::sync::RwLock;
 
-use crate::{math::{Vector2, Matrix3x3}, color::Color4, graphics::buffers::{GlBuffer, GlVAO}};
+use crate::{math::{Vector2, Matrix3x3}, color::Color4, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
 use self::shader::{Shader, SubShader, SubShaderType};
 
 use super::gl_call;
 
 pub mod shader;
-mod buffers;
+pub mod buffers;
+pub mod verts;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
 
-
+#[derive(Clone, Copy, PartialEq)]
 enum Mode {
     Unset,
-    Rect
+    Rect,
+    _Custom,
 }
 
-const DEF_RECT_VERT_SHADER: &str = r#"
-#version 330 core
-layout (location = 0) in vec2 vPos;
-layout (location = 1) in vec4 vCol;
+impl Mode {
+    pub fn matches(&self, other: &Self) -> bool {
+        if matches!(self, Mode::_Custom) || matches!(other, Mode::_Custom) {
+            return false;
+        }
 
-out vec4 fCol;
-
-uniform mat3 tf_mat;
-uniform mat3 cam_mat;
-
-void main() {
-    gl_Position = vec4((cam_mat * tf_mat * vec3(vPos, 1.0)).xy, 0.0, 1.0);
-    fCol = vCol;
+        return self == other;
+    }
 }
-"#;
-
-const DEF_RECT_FRAG_SHADER: &str = r#"
-#version 330 core
-
-in vec4 fCol;
-out vec4 FragColor;
-
-void main() {
-    FragColor = fCol;
-}
-"#;
 
 
+const DEF_RECT_VERT_SHADER: &str = include_str!("../inline/def_rect_vert_shader.glsl");
+const DEF_RECT_FRAG_SHADER: &str = include_str!("../inline/def_rect_frag_shader.glsl");
 
 pub struct Graphics {
     mode: Mode,
     def_rect_shader: Shader,
     scheduled_cam_mat: Matrix3x3,
+    curr_cam_mat: Matrix3x3,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_mat: Matrix3x3::IDENTITY }
+        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_mat: Matrix3x3::IDENTITY, curr_cam_mat: Matrix3x3::IDENTITY }
     }
 
     pub(crate) fn init() {
@@ -66,8 +54,10 @@ impl Graphics {
         );
     }
 
-    pub(crate) fn frame_start() {
-        Self::update_cam_mat();
+    pub fn tick() {
+        // Update camera matrix
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.curr_cam_mat = writer.scheduled_cam_mat.clone();
     }
     
     pub fn draw_rect(left_down: Vector2, extents: Vector2, color: Color4) {
@@ -79,21 +69,24 @@ impl Graphics {
         #[repr(C)]
         struct Vert(Vector2, Color4);
     
+        Self::change_mode(Mode::Rect);
+
+        let vert_data = [Vert(Vector2::ZERO, colors[0]), Vert(Vector2::UP, colors[1]), Vert(Vector2::ONE, colors[2]), Vert(Vector2::RIGHT, colors[3])];
+
         let vao = GlVAO::new();
         vao.bind();
-
-        let verts = [Vert(Vector2::ZERO, colors[0]), Vert(Vector2::UP, colors[1]), Vert(Vector2::ONE, colors[2]), Vert(Vector2::RIGHT, colors[3])];
-        let vert_buffer = GlBuffer::new(gl::ARRAY_BUFFER);
-        vert_buffer.set_data(&verts);
-    
-        Self::setup_rect_mode();
-        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
-    
-        let tri_buffer = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
-        tri_buffer.set_data(&Self::RECT_TRIS);
         
+        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        vbo.set_data(&vert_data);
+
+        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        ebo.set_data(&Self::RECT_TRIS);
+
+        set_vertex_attribs(&[2, 4]);
+        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
+
         vao.bind();
-        gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, 0 as *const std::ffi::c_void));
+        gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
     }
 
     pub fn set_cam(pos: Vector2, rot: f32, size: Vector2) {
@@ -104,25 +97,18 @@ impl Graphics {
         writer.scheduled_cam_mat = mat;
     }
 
-    fn setup_rect_mode() {
+    fn change_mode(mode: Mode) {
         let mut writer = GRAPHICS.write().unwrap();
-        
-        if matches!(writer.mode, Mode::Rect) {
+        if writer.mode.matches(&mode) {
             return;
         }
 
-        const F32_SIZE: i32 = std::mem::size_of::<f32>() as i32;
-        gl_call!(gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 6 * F32_SIZE, 0 as *const std::ffi::c_void));
-        gl_call!(gl::EnableVertexAttribArray(0));
-        gl_call!(gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, 6 * F32_SIZE, (2 * F32_SIZE) as *const std::ffi::c_void));
-        gl_call!(gl::EnableVertexAttribArray(1));
-
+        set_vertex_attribs(&[2, 4]);
         writer.def_rect_shader.enable();
-
-        writer.mode = Mode::Rect;
+        writer.mode = mode;
     }
 
-    const TF_MAT_NAME: &str = "tf_mat\0";
+    const MVM_NAME: [u8; 4] = [b'm', b'v', b'm', 0];
     fn set_tf_mat(mat: Matrix3x3) {
         let reader = GRAPHICS.read().unwrap();
         let shader = match reader.get_current_shader() {
@@ -130,30 +116,22 @@ impl Graphics {
             None => return,
         };
 
-        let tf_mat_address = gl_call!(gl::GetUniformLocation(shader.id(), Self::TF_MAT_NAME.as_ptr() as *const i8));
+        let tf_mat_address = gl_call!(gl::GetUniformLocation(shader.id(), Self::MVM_NAME.as_ptr() as *const i8));
         assert!(tf_mat_address != -1);
-        
-        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::FALSE, mat.ptr()))
-    }
 
-    const CAM_MAT_NAME: &str = "cam_mat\0";
-    fn update_cam_mat() {
-        let reader = GRAPHICS.read().unwrap();
-        let shader = match reader.get_current_shader() {
-            Some(x) => x,
-            None => return,
-        };
+        let mvm = &reader.curr_cam_mat * &mat;
 
-        let cam_mat_address = gl_call!(gl::GetUniformLocation(shader.id(), Self::CAM_MAT_NAME.as_ptr() as *const i8));
-        assert!(cam_mat_address != -1);
-        
-        gl_call!(gl::UniformMatrix3fv(cam_mat_address, 1, gl::FALSE, reader.scheduled_cam_mat.ptr()))
+        shader.enable(); // must enable for the next gl_call to not fucking scream and die
+        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::FALSE, mvm.ptr()))
     }
 
     fn get_current_shader(&self) -> Option<&Shader> {
         match self.mode {
             Mode::Unset => None,
             Mode::Rect => Some(&self.def_rect_shader),
+            Mode::_Custom => None,
         }
     }
 }
+
+

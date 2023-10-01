@@ -12,7 +12,12 @@ type Res<T, E> = Result<T, E>;
 #[cfg(debug_assertions)]
 macro_rules! gl_call {
     ($x:expr) => {
-        unsafe { $x } 
+        unsafe {
+            $crate::gl_clear_error();
+            let res = $x;
+            $crate::gl_print_err(&format!("File {}, Ln {}, Col {}", file!(), line!(), column!()));
+            res
+        } 
     };
 }
 
@@ -24,3 +29,31 @@ macro_rules! gl_call {
 }
 
 pub(crate) use gl_call;
+
+#[cfg(debug_assertions)]
+unsafe fn gl_clear_error() {
+    while gl::GetError() != gl::NO_ERROR {}
+}
+
+#[cfg(debug_assertions)]
+unsafe fn gl_print_err(print_metadata: &str) {
+    loop {
+        let err = gl::GetError();
+        if err == gl::NO_ERROR {
+            return;
+        }
+
+        let err = match err {
+            gl::INVALID_ENUM => "GL_INVALID_ENUM",
+            gl::INVALID_VALUE => "GL_INVALID_VALUE",
+            gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
+            gl::INVALID_FRAMEBUFFER_OPERATION => "GL_INVALID_FRAMEBUFFER_OPERATION",
+            gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
+            gl::STACK_UNDERFLOW => "GL_STACK_UNDERFLOW",
+            gl::STACK_OVERFLOW => "GL_STACK_OVERFLOW",
+            _ => unreachable!()
+        };
+
+        eprintln!("{print_metadata}\t\t GL_ERROR: {err}");
+    }
+}
