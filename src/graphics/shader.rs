@@ -42,7 +42,7 @@ impl SubShader {
         if success == 0 {
             gl_call!(gl::GetShaderInfoLog(id, 512, std::ptr::null_mut(), info_log.as_mut_ptr() as *mut i8));
             let str_form = std::str::from_utf8(&info_log).unwrap();
-            eprintln!("{kind} Shader Compilation Error: {str_form}");
+            eprintln!("{kind} Shader Compilation Error:\n{str_form}");
         }
 
         Self { id, kind }
@@ -86,7 +86,7 @@ impl Shader {
         if success == 0 {
             gl_call!(gl::GetProgramInfoLog(id, 512, std::ptr::null_mut(), info_log.as_mut_ptr() as *mut i8));
             let str_form = std::str::from_utf8(&info_log).unwrap();
-            eprintln!("Shader Linking Error: {str_form}");
+            eprintln!("Shader Linking Error:\n{str_form}");
         }
 
         return Self { _vert: vert, _frag: frag, id };
