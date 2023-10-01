@@ -34,16 +34,22 @@ impl Mode {
 const DEF_RECT_VERT_SHADER: &str = include_str!("../inline/def_rect_vert_shader.glsl");
 const DEF_RECT_FRAG_SHADER: &str = include_str!("../inline/def_rect_frag_shader.glsl");
 
+const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
+struct CamData {
+    pos: Vector2,
+    height: f32,
+}
+
 pub struct Graphics {
     mode: Mode,
     def_rect_shader: Shader,
-    scheduled_cam_mat: Matrix3x3,
+    scheduled_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_mat: Matrix3x3::IDENTITY, curr_cam_mat: Matrix3x3::IDENTITY }
+        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY }
     }
 
     pub(crate) fn init() {
@@ -54,10 +60,14 @@ impl Graphics {
         );
     }
 
-    pub fn tick() {
+    pub fn tick(aspect_ratio: f32) {
         // Update camera matrix
         let mut writer = GRAPHICS.write().unwrap();
-        writer.curr_cam_mat = writer.scheduled_cam_mat.clone();
+        
+        let cam_data = &writer.scheduled_cam_data;
+        let size = Vector2(cam_data.height * aspect_ratio, cam_data.height);
+        //println!("{size:?}");
+        writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
     }
     
     pub fn draw_rect(left_down: Vector2, extents: Vector2, color: Color4) {
@@ -89,12 +99,11 @@ impl Graphics {
         gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
     }
 
-    pub fn set_cam(pos: Vector2, rot: f32, size: Vector2) {
-        assert!(size.0 != 0.0 && size.1 != 0.0);
-        let mat = Matrix3x3::inv_transform_matrix(pos, rot, size);
+    pub fn set_cam(pos: Vector2, rot: f32, height: f32) {
+        assert!(height != 0.0);
 
         let mut writer = GRAPHICS.write().unwrap();
-        writer.scheduled_cam_mat = mat;
+        writer.scheduled_cam_data = CamData { pos, height };
     }
 
     fn change_mode(mode: Mode) {
@@ -122,7 +131,7 @@ impl Graphics {
         let mvm = &reader.curr_cam_mat * &mat;
 
         shader.enable(); // must enable for the next gl_call to not fucking scream and die
-        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::FALSE, mvm.ptr()))
+        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, mvm.ptr()))
     }
 
     fn get_current_shader(&self) -> Option<&Shader> {
