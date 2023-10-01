@@ -148,7 +148,7 @@ impl Matrix3x3 {
 
     pub fn translate(&mut self, delta: Vector2) {
         self.rows[0][2] += delta.0;
-        self.rows[1][2] += delta.1;
+        self.rows[1][2] -= delta.1;
     }
 
     pub fn scale(&mut self, mul: Vector2) {
@@ -178,11 +178,53 @@ impl Matrix3x3 {
     }
 
     pub fn inv_transform_matrix(pos: Vector2, rot: f32, scale: Vector2) -> Self {
-        let mut mat = Self::IDENTITY.clone();
-        mat.rotate(-rot);
-        mat.scale(scale.inv_dims());
-        mat.translate(-pos);
+        let mut mat = Self::transform_matrix(pos, rot, scale);
+        mat.invert();
         return mat;
+    }
+
+    pub fn cam_matrix(pos: Vector2, dims: Vector2) -> Self {
+        let mut mat = Self::IDENTITY.clone();
+        mat.rows[0][0] = 1.0 / dims.0;
+        mat.rows[1][1] = -1.0 / dims.1;
+        mat.rows[0][2] = -pos.0 / dims.0;
+        mat.rows[1][2] = -pos.1 / dims.1;
+        return mat;
+    }
+
+    pub fn determinant(&self) -> f32 {
+        return self.rows[0][0] * (self.rows[1][1] * self.rows[2][2] - self.rows[2][1] * self.rows[1][2]) -
+            self.rows[0][1] * (self.rows[1][0] * self.rows[2][2] - self.rows[2][0] * self.rows[1][2]) +
+            self.rows[0][2] * (self.rows[1][0] * self.rows[2][1] - self.rows[2][0] * self.rows[1][1])
+    }
+
+    pub fn invert(&mut self) {
+        let inv_det = 1.0 / self.determinant();
+        let src = self.rows.clone();
+
+        self.rows = [
+            [
+                (src[1][1] * src[2][2] - src[2][1] * src[1][2]) * inv_det,
+                -(src[1][0] * src[2][2] - src[2][0] * src[1][2]) * inv_det,
+                (src[1][0] * src[2][1] - src[2][0] * src[1][1]) * inv_det,
+            ],
+            [
+                -(src[0][1] * src[2][2] - src[2][1] * src[0][2]) * inv_det,
+                (src[0][0] * src[2][2] - src[2][0] * src[0][2]) * inv_det,
+                -(src[0][0] * src[2][1] - src[2][0] * src[0][1]) * inv_det,
+            ],
+            [
+                (src[0][1] * src[1][2] - src[1][1] * src[0][2]) * inv_det,
+                -(src[0][0] * src[1][2] - src[1][0] * src[0][2]) * inv_det,
+                (src[0][0] * src[1][1] - src[1][0] * src[0][1]) * inv_det,
+            ],
+        ]
+    }
+
+    pub fn inverse(&self) -> Self {
+        let mut res = self.clone();
+        res.invert();
+        return res;
     }
 
     pub fn ptr(&self) -> *const f32 {
