@@ -1,14 +1,15 @@
 use std::sync::RwLock;
 
-use crate::{math::{Vector2, Matrix3x3}, color::Color4, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
+use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
-use self::shader::{Shader, SubShader, SubShaderType};
+use self::{shader::{Shader, SubShader, SubShaderType}, texture::Texture};
 
 use super::gl_call;
 
 pub mod shader;
 pub mod buffers;
 pub mod verts;
+pub mod texture;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
@@ -17,6 +18,7 @@ static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
 enum Mode {
     Unset,
     Rect,
+    Textured,
     _Custom,
 }
 
@@ -34,6 +36,9 @@ impl Mode {
 const DEF_RECT_VERT_SHADER: &str = include_str!("../inline/def_rect_vert_shader.glsl");
 const DEF_RECT_FRAG_SHADER: &str = include_str!("../inline/def_rect_frag_shader.glsl");
 
+const DEF_TEX_VERT_SHADER: &str = include_str!("../inline/def_tex_vert_shader.glsl");
+const DEF_TEX_FRAG_SHADER: &str = include_str!("../inline/def_tex_frag_shader.glsl");
+
 const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
 struct CamData {
     pos: Vector2,
@@ -42,14 +47,18 @@ struct CamData {
 
 pub struct Graphics {
     mode: Mode,
-    def_rect_shader: Shader,
     scheduled_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
+    
+    def_rect_shader: Shader,
+    def_tex_shader: Shader,
+
+    pixels_per_unit: f32,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY }
+        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, def_tex_shader: Shader::invalid(), pixels_per_unit: 1.0 }
     }
 
     pub(crate) fn init() {
@@ -57,6 +66,11 @@ impl Graphics {
         writer.def_rect_shader = Shader::new(
             SubShader::new(&DEF_RECT_VERT_SHADER, SubShaderType::Vert),
             SubShader::new(&DEF_RECT_FRAG_SHADER, SubShaderType::Frag)
+        );
+
+        writer.def_tex_shader = Shader::new(
+            SubShader::new(&DEF_TEX_VERT_SHADER, SubShaderType::Vert),
+            SubShader::new(&DEF_TEX_FRAG_SHADER, SubShaderType::Frag),
         );
     }
 
@@ -69,6 +83,10 @@ impl Graphics {
         //println!("{size:?}");
         writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
     }
+
+
+
+    // |>-<   Rect Drawing   >-<| //
     
     pub fn draw_rect(left_down: Vector2, extents: Vector2, color: Color4) {
         Self::draw_rect_full(left_down, extents, 0.0, [color; 4])
@@ -97,6 +115,56 @@ impl Graphics {
 
         vao.bind();
         gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
+    }
+
+
+
+    // |>-<   Rect Drawing   >-<| //
+
+    pub fn draw_texture(left_down: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
+        Self::draw_texture_full(left_down, scale, rot, [Color4::WHITE; 4], tex)
+    }
+
+    pub fn draw_texture_full(left_down: Vector2, scale: Vector2, rot: f32, colors: [Color4; 4], tex: &Texture) {
+        #[repr(C)]
+        struct Vert(Vector2, Color4, Vector2);
+
+        Self::change_mode(Mode::Textured);
+
+        let vert_data = [Vert(Vector2::ZERO, colors[0], Vector2::UP), Vert(Vector2::UP, colors[1], Vector2::ZERO), Vert(Vector2::ONE, colors[2], Vector2::RIGHT), Vert(Vector2::RIGHT, colors[3], Vector2::ONE)];
+
+        let vao = GlVAO::new();
+        vao.bind();
+        
+        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        vbo.set_data(&vert_data);
+
+        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        ebo.set_data(&Self::RECT_TRIS);
+
+        tex.enable(0); // main_texture is always 0
+
+        let tex_res = tex.dims();
+        let ppu = {
+            let reader = GRAPHICS.read().unwrap();
+            reader.pixels_per_unit
+        };
+        let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale);
+
+        set_vertex_attribs(&[2, 4, 2]);
+        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
+
+        vao.bind();
+        gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
+    }
+
+
+
+    pub fn set_pixels_per_unit(ppu: f32) {
+        assert!(ppu > 0.0);
+
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.pixels_per_unit = ppu;
     }
 
     pub fn set_cam(pos: Vector2, height: f32) {
@@ -138,6 +206,7 @@ impl Graphics {
         match self.mode {
             Mode::Unset => None,
             Mode::Rect => Some(&self.def_rect_shader),
+            Mode::Textured => Some(&self.def_tex_shader),
             Mode::_Custom => None,
         }
     }
