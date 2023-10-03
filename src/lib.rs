@@ -24,7 +24,7 @@ macro_rules! gl_call {
 #[cfg(not(debug_assertions))]
 macro_rules! gl_call {
     ($x:expr) => {
-        unsafe { x } 
+        unsafe { $x } 
     };
 }
 
