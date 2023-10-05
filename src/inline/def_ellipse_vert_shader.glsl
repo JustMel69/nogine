@@ -1,0 +1,16 @@
+#version 330 core
+
+layout (location = 0) in vec2 v_Pos;
+layout (location = 1) in vec4 v_Col;
+layout (location = 2) in vec2 v_UV;
+
+out vec4 f_Col;
+out vec2 f_UV;
+
+uniform mat3 mvm;
+
+void main() {
+    gl_Position = vec4(mvm * vec3(v_Pos, 1.0), 1.0);
+    f_Col = v_Col;
+    f_UV = v_UV;
+}

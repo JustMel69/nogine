@@ -11,8 +11,8 @@ fn main() {
         Graphics::tick(window.aspect_ratio());
         window.clear_screen(Color4::BLACK);
         
-        // Draw Rect
-        Graphics::draw_rect(Vector2(-0.5, -0.5), Vector2::ONE, Color4::WHITE);
+        Graphics::draw_rect(Vector2(-1.5, -0.5), Vector2::ONE, Color4::WHITE);
+        Graphics::draw_circle(Vector2(1.0, 0.0), 0.5, Color4::PINK);
         
         // Handle window
         window.swap_buffers();

@@ -1,6 +1,5 @@
 # TODO
 ## Graphics
-- Elipses
 - N-sided polygon rendering
 - Manual mesh rendering
 - Custom shaders

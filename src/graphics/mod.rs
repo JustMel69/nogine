@@ -1,6 +1,6 @@
 use std::{sync::RwLock, f32::consts::E};
 
-use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
+use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color, self}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
 use self::{shader::{Shader, SubShader, SubShaderType}, texture::Texture};
 
@@ -19,6 +19,7 @@ enum Mode {
     Unset,
     Rect,
     Textured,
+    Ellipse,
     _Custom,
 }
 
@@ -39,6 +40,9 @@ const DEF_RECT_FRAG_SHADER: &str = include_str!("../inline/def_rect_frag_shader.
 const DEF_TEX_VERT_SHADER: &str = include_str!("../inline/def_tex_vert_shader.glsl");
 const DEF_TEX_FRAG_SHADER: &str = include_str!("../inline/def_tex_frag_shader.glsl");
 
+const DEF_ELLIPSE_VERT_SHADER: &str = include_str!("../inline/def_ellipse_vert_shader.glsl");
+const DEF_ELLIPSE_FRAG_SHADER: &str = include_str!("../inline/def_ellipse_frag_shader.glsl");
+
 const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
 struct CamData {
     pos: Vector2,
@@ -52,13 +56,14 @@ pub struct Graphics {
     
     def_rect_shader: Shader,
     def_tex_shader: Shader,
+    def_ellipse_shader: Shader,
 
     pixels_per_unit: f32,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, def_tex_shader: Shader::invalid(), pixels_per_unit: 1.0 }
+        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, def_tex_shader: Shader::invalid(), pixels_per_unit: 1.0, def_ellipse_shader: Shader::invalid() }
     }
 
     pub(crate) fn init() {
@@ -71,6 +76,11 @@ impl Graphics {
         writer.def_tex_shader = Shader::new(
             SubShader::new(&DEF_TEX_VERT_SHADER, SubShaderType::Vert),
             SubShader::new(&DEF_TEX_FRAG_SHADER, SubShaderType::Frag),
+        );
+
+        writer.def_ellipse_shader = Shader::new(
+            SubShader::new(&DEF_ELLIPSE_VERT_SHADER, SubShaderType::Vert),
+            SubShader::new(&DEF_ELLIPSE_FRAG_SHADER, SubShaderType::Frag),
         );
     }
 
@@ -106,7 +116,7 @@ impl Graphics {
 
 
 
-    // |>-<   Rect Drawing   >-<| //
+    // |>-<   Texture Drawing   >-<| //
 
     pub fn draw_texture(left_down: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
         Self::draw_texture_full(left_down, scale, rot, [Color4::WHITE; 4], tex)
@@ -147,6 +157,25 @@ impl Graphics {
         Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
         vao.bind();
         gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
+    }
+
+
+
+    // |>-<   Ellipse Drawing   >-<| //
+
+    pub fn draw_circle(center: Vector2, radius: f32, color: Color4) {
+        Self::draw_ellipse(center, Vector2(radius, radius), 0.0, color);
+    }
+
+    pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) {
+        #[repr(C)]
+        struct Vert(Vector2, Color4, Vector2);
+
+        Self::change_mode(Mode::Ellipse);
+
+        let vert_data = [Vert(Vector2::ZERO, color, Vector2::UP), Vert(Vector2::UP, color, Vector2::ZERO), Vert(Vector2::ONE, color, Vector2::RIGHT), Vert(Vector2::RIGHT, color, Vector2::ONE)];
+
+        Self::draw_rect_internal(center - half_extents, half_extents * 2.0, rot, &vert_data, &[2, 4, 2]);
     }
 
 
@@ -198,6 +227,7 @@ impl Graphics {
             Mode::Unset => None,
             Mode::Rect => Some(&self.def_rect_shader),
             Mode::Textured => Some(&self.def_tex_shader),
+            Mode::Ellipse => Some(&self.def_ellipse_shader),
             Mode::_Custom => None,
         }
     }
