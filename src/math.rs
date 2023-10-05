@@ -1,4 +1,4 @@
-use std::ops::{Add, Neg, Sub, Mul, Div};
+use std::ops::{Add, Neg, Sub, Mul, Div, AddAssign};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Vector2(pub f32, pub f32);
@@ -84,6 +84,14 @@ impl Vector2 {
     pub fn lerp(self, other: Self, fact: f32) -> Self {
         return lerp(self, other, fact);
     }
+
+    pub fn average(slice: &[Self]) -> Self {
+        let mut res = Vector2::ZERO;
+        for v in slice {
+            res += *v;
+        }
+        return res / slice.len() as f32;
+    }
 }
 
 impl Add for Vector2 {
@@ -91,6 +99,12 @@ impl Add for Vector2 {
 
     fn add(self, rhs: Self) -> Self::Output {
         return Self(self.0 + rhs.0, self.1 + rhs.1);
+    }
+}
+
+impl AddAssign for Vector2 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
     }
 }
 

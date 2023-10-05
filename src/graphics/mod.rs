@@ -1,6 +1,6 @@
-use std::{sync::RwLock, f32::consts::E};
+use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color, self}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
+use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
 use self::{shader::{Shader, SubShader, SubShaderType}, texture::Texture};
 
@@ -176,6 +176,54 @@ impl Graphics {
         let vert_data = [Vert(Vector2::ZERO, color, Vector2::UP), Vert(Vector2::UP, color, Vector2::ZERO), Vert(Vector2::ONE, color, Vector2::RIGHT), Vert(Vector2::RIGHT, color, Vector2::ONE)];
 
         Self::draw_rect_internal(center - half_extents, half_extents * 2.0, rot, &vert_data, &[2, 4, 2]);
+    }
+
+
+
+    // |>-<   N-sided polygon   >-<| //
+
+    pub fn draw_polygon(center: Vector2, radius: f32, rot: f32, sides: u16, color: Color4) {
+        Self::draw_polygon_ext(center, Vector2(radius, radius), rot, sides, color);
+    }
+
+    pub fn draw_polygon_ext(center: Vector2, half_extents: Vector2, rot: f32, sides: u16, color: Color4) {
+        assert!(sides >= 3);
+
+        #[repr(C)]
+        struct Vert(Vector2, Color4);
+
+        Self::change_mode(Mode::Rect);
+
+        let delta_theta = (2.0 * PI) / (sides as f32);
+        let mut verts = Vec::with_capacity(1 + sides as usize);
+
+        verts.push(Vert(Vector2::ZERO, color));
+        for i in 0..sides {
+            let theta = delta_theta * (i as f32);
+            let pos = Vector2::UP.rotate(theta);
+            verts.push(Vert(pos, color));
+        }
+        let mut tris: Vec<u16> = Vec::with_capacity(sides as usize * 3);
+        for i in 0..sides {
+            let i = i + 1;
+            let j = (i % sides) + 1;
+            tris.extend_from_slice(&[0, i, j])
+        }
+
+        let vao = GlVAO::new();
+        vao.bind();
+        
+        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        vbo.set_data(verts.as_slice());
+        
+        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        ebo.set_data(tris.as_slice());
+        
+        set_vertex_attribs(&[2, 4]);
+
+        Self::set_tf_mat(Matrix3x3::transform_matrix(center, rot, half_extents));
+        vao.bind();
+        gl_call!(gl::DrawElements(gl::TRIANGLES, tris.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null()));
     }
 
 

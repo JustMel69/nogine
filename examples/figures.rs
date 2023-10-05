@@ -11,8 +11,9 @@ fn main() {
         Graphics::tick(window.aspect_ratio());
         window.clear_screen(Color4::BLACK);
         
-        Graphics::draw_rect(Vector2(-1.5, -0.5), Vector2::ONE, Color4::WHITE);
-        Graphics::draw_circle(Vector2(1.0, 0.0), 0.5, Color4::PINK);
+        Graphics::draw_rect(Vector2(-1.55, -0.5), Vector2::ONE, Color4::CYAN);
+        Graphics::draw_circle(Vector2::ZERO, 0.5, Color4::YELLOW);
+        Graphics::draw_polygon(Vector2(1.0, 0.0), 0.5, 0.0, 3, Color::PINK);
         
         // Handle window
         window.swap_buffers();
