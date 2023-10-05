@@ -13,7 +13,7 @@ fn main() {
         
         Graphics::draw_rect(Vector2(-1.55, -0.5), Vector2::ONE, Color4::CYAN);
         Graphics::draw_circle(Vector2::ZERO, 0.5, Color4::YELLOW);
-        Graphics::draw_polygon(Vector2(1.0, 0.0), 0.5, 0.0, 3, Color::PINK);
+        Graphics::draw_polygon(Vector2(1.0, 0.0), 0.5, 0.0, 6, Color::PINK);
         
         // Handle window
         window.swap_buffers();

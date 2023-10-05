@@ -34,14 +34,13 @@ impl Mode {
 }
 
 
-const DEF_RECT_VERT_SHADER: &str = include_str!("../inline/def_rect_vert_shader.glsl");
-const DEF_RECT_FRAG_SHADER: &str = include_str!("../inline/def_rect_frag_shader.glsl");
+const DEF_PLAIN_VERT: &str = include_str!("../inline/def_plain_shader.vert");
+const DEF_PLAIN_FRAG: &str = include_str!("../inline/def_plain_shader.frag");
 
-const DEF_TEX_VERT_SHADER: &str = include_str!("../inline/def_tex_vert_shader.glsl");
-const DEF_TEX_FRAG_SHADER: &str = include_str!("../inline/def_tex_frag_shader.glsl");
+const DEF_UV_VERT: &str = include_str!("../inline/def_uv_shader.vert");
+const DEF_TEX_FRAG: &str = include_str!("../inline/def_tex_shader.frag");
 
-const DEF_ELLIPSE_VERT_SHADER: &str = include_str!("../inline/def_ellipse_vert_shader.glsl");
-const DEF_ELLIPSE_FRAG_SHADER: &str = include_str!("../inline/def_ellipse_frag_shader.glsl");
+const DEF_ELLIPSE_FRAG_SHADER: &str = include_str!("../inline/def_ellipse_shader.frag");
 
 const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
 struct CamData {
@@ -69,20 +68,22 @@ impl Graphics {
     }
 
     pub(crate) fn init() {
+        let uv_vert = SubShader::new(&DEF_UV_VERT, SubShaderType::Vert);
+        
         let mut writer = GRAPHICS.write().unwrap();
         writer.def_rect_shader = Shader::new(
-            SubShader::new(&DEF_RECT_VERT_SHADER, SubShaderType::Vert),
-            SubShader::new(&DEF_RECT_FRAG_SHADER, SubShaderType::Frag)
+            &SubShader::new(&DEF_PLAIN_VERT, SubShaderType::Vert),
+            &SubShader::new(&DEF_PLAIN_FRAG, SubShaderType::Frag),
         );
 
         writer.def_tex_shader = Shader::new(
-            SubShader::new(&DEF_TEX_VERT_SHADER, SubShaderType::Vert),
-            SubShader::new(&DEF_TEX_FRAG_SHADER, SubShaderType::Frag),
+            &uv_vert,
+            &SubShader::new(&DEF_TEX_FRAG, SubShaderType::Frag),
         );
 
         writer.def_ellipse_shader = Shader::new(
-            SubShader::new(&DEF_ELLIPSE_VERT_SHADER, SubShaderType::Vert),
-            SubShader::new(&DEF_ELLIPSE_FRAG_SHADER, SubShaderType::Frag),
+            &uv_vert,
+            &SubShader::new(&DEF_ELLIPSE_FRAG_SHADER, SubShaderType::Frag),
         );
     }
 

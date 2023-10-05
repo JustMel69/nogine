@@ -59,19 +59,17 @@ impl Drop for SubShader {
     }
 }
 
-
 pub struct Shader {
     id: gl::types::GLuint,
-    _vert: SubShader,
-    _frag: SubShader,
+    unique: bool,
 }
 
 impl Shader {
     pub const fn invalid() -> Self {
-        Self { id: 0, _vert: SubShader::invalid(), _frag: SubShader::invalid() }
+        Self { id: 0, unique: false }
     }
 
-    pub fn new(vert: SubShader, frag: SubShader) -> Self {
+    pub fn new(vert: &SubShader, frag: &SubShader) -> Self {
         assert!(matches!(vert.kind, SubShaderType::Vert));
         assert!(matches!(frag.kind, SubShaderType::Frag));
 
@@ -89,7 +87,7 @@ impl Shader {
             eprintln!("Shader Linking Error:\n{str_form}");
         }
 
-        return Self { _vert: vert, _frag: frag, id };
+        return Self { id, unique: true };
     }
 
     pub fn enable(&self) {
@@ -99,11 +97,16 @@ impl Shader {
     pub fn id(&self) -> u32 {
         self.id
     }
+
+    pub fn clone_obj(&mut self) -> Self {
+        self.unique = false;
+        return Self { id: self.id, unique: false }
+    }
 }
 
 impl Drop for Shader {
     fn drop(&mut self) {
-        if self.id == 0 {
+        if self.id == 0 || !self.unique {
             return;
         }
 
