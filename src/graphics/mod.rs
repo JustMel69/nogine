@@ -1,4 +1,4 @@
-use std::sync::RwLock;
+use std::{sync::RwLock, f32::consts::E};
 
 use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
@@ -101,20 +101,7 @@ impl Graphics {
 
         let vert_data = [Vert(Vector2::ZERO, colors[0]), Vert(Vector2::UP, colors[1]), Vert(Vector2::ONE, colors[2]), Vert(Vector2::RIGHT, colors[3])];
 
-        let vao = GlVAO::new();
-        vao.bind();
-        
-        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
-        vbo.set_data(&vert_data);
-
-        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
-        ebo.set_data(&Self::RECT_TRIS);
-
-        set_vertex_attribs(&[2, 4]);
-        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
-
-        vao.bind();
-        gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
+        Self::draw_rect_internal(left_down, extents, rot, &vert_data, &[2, 4]);
     }
 
 
@@ -133,15 +120,6 @@ impl Graphics {
 
         let vert_data = [Vert(Vector2::ZERO, colors[0], Vector2::UP), Vert(Vector2::UP, colors[1], Vector2::ZERO), Vert(Vector2::ONE, colors[2], Vector2::RIGHT), Vert(Vector2::RIGHT, colors[3], Vector2::ONE)];
 
-        let vao = GlVAO::new();
-        vao.bind();
-        
-        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
-        vbo.set_data(&vert_data);
-
-        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
-        ebo.set_data(&Self::RECT_TRIS);
-
         tex.enable(0); // main_texture is always 0
 
         let tex_res = tex.dims();
@@ -151,9 +129,22 @@ impl Graphics {
         };
         let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale);
 
-        set_vertex_attribs(&[2, 4, 2]);
-        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
+        Self::draw_rect_internal(left_down, extents, rot, &vert_data, &[2, 4, 2]);
+    }
+    
+    fn draw_rect_internal<T>(left_down: Vector2, extents: Vector2, rot: f32, vert_data: &[T], attribs: &[usize]) {
+        let vao = GlVAO::new();
+        vao.bind();
+        
+        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        vbo.set_data(vert_data);
+        
+        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        ebo.set_data(&Self::RECT_TRIS);
+        
+        set_vertex_attribs(attribs);
 
+        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
         vao.bind();
         gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
     }
