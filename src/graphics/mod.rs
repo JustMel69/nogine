@@ -15,17 +15,17 @@ pub mod texture;
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
 
 #[derive(Clone, Copy, PartialEq)]
-enum Mode {
+pub enum Mode {
     Unset,
     Rect,
     Textured,
     Ellipse,
-    _Custom,
+    Custom,
 }
 
 impl Mode {
     pub fn matches(&self, other: &Self) -> bool {
-        if matches!(self, Mode::_Custom) || matches!(other, Mode::_Custom) {
+        if matches!(self, Mode::Custom) || matches!(other, Mode::Custom) {
             return false;
         }
 
@@ -59,11 +59,13 @@ pub struct Graphics {
     def_ellipse_shader: Shader,
 
     pixels_per_unit: f32,
+
+    curr_custom_shader: Option<Shader>,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, def_tex_shader: Shader::invalid(), pixels_per_unit: 1.0, def_ellipse_shader: Shader::invalid() }
+        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, def_tex_shader: Shader::invalid(), pixels_per_unit: 1.0, def_ellipse_shader: Shader::invalid(), curr_custom_shader: None }
     }
 
     pub(crate) fn init() {
@@ -228,6 +230,34 @@ impl Graphics {
 
 
 
+    pub fn draw_custom_mesh<T>(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[T], tri_data: &[u16]) {
+        assert!(tri_data.len() % 3 == 0);
+
+        Self::change_mode(Mode::Custom);
+
+        let vao = GlVAO::new();
+        vao.bind();
+        
+        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        vbo.set_data(vert_data);
+        
+        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        ebo.set_data(tri_data);
+        
+        set_vertex_attribs(&[2, 4]);
+
+        Self::set_tf_mat(Matrix3x3::transform_matrix(pos, rot, scale));
+        vao.bind();
+        gl_call!(gl::DrawElements(gl::TRIANGLES, tri_data.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null()));
+    }
+
+    pub fn set_shader(shader: Shader, mode: Mode) {
+        assert!(matches!(mode, Mode::Custom));
+
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.curr_custom_shader = Some(shader);
+    }
+
     pub fn set_pixels_per_unit(ppu: f32) {
         assert!(ppu > 0.0);
 
@@ -276,7 +306,7 @@ impl Graphics {
             Mode::Rect => Some(&self.def_rect_shader),
             Mode::Textured => Some(&self.def_tex_shader),
             Mode::Ellipse => Some(&self.def_ellipse_shader),
-            Mode::_Custom => None,
+            Mode::Custom => self.curr_custom_shader.as_ref(),
         }
     }
 }
