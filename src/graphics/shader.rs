@@ -1,7 +1,8 @@
-use std::{fmt::Display, ffi::CString};
+use std::{fmt::Display, ffi::CString, sync::Arc};
 
 use super::super::gl_call;
 
+#[derive(Clone)]
 pub enum SubShaderType {
     Vert, Frag
 }
@@ -16,14 +17,22 @@ impl Display for SubShaderType {
 }
 
 
+struct SubShaderCore(gl::types::GLuint);
+impl Drop for SubShaderCore {
+    fn drop(&mut self) {
+        gl_call!(gl::DeleteShader(self.0));
+    }
+}
+
+#[derive(Clone)]
 pub struct SubShader {
-    id: gl::types::GLuint,
+    core: Option<Arc<SubShaderCore>>,
     kind: SubShaderType,
 }
 
 impl SubShader {
     pub const fn invalid() -> Self {
-        Self { id: 0, kind: SubShaderType::Vert }
+        Self { core: None, kind: SubShaderType::Vert }
     }
     
     pub fn new(src: &str, kind: SubShaderType) -> Self {
@@ -45,28 +54,31 @@ impl SubShader {
             eprintln!("{kind} Shader Compilation Error:\n{str_form}");
         }
 
-        Self { id, kind }
+        Self { core: Some(Arc::new(SubShaderCore(id))), kind }
+    }
+
+    pub fn id(&self) -> u32 {
+        return self.core.as_ref().unwrap().0;
     }
 }
 
-impl Drop for SubShader {
+
+struct ShaderCore(gl::types::GLuint);
+impl Drop for ShaderCore {
     fn drop(&mut self) {
-        if self.id == 0 {
-            return;
-        }
-
-        gl_call!(gl::DeleteShader(self.id));
+        gl_call!(gl::DeleteProgram(self.0));
     }
 }
 
+
+#[derive(Clone)]
 pub struct Shader {
-    id: gl::types::GLuint,
-    unique: bool,
+    core: Option<Arc<ShaderCore>>
 }
 
 impl Shader {
     pub const fn invalid() -> Self {
-        Self { id: 0, unique: false }
+        Self { core: None }
     }
 
     pub fn new(vert: &SubShader, frag: &SubShader) -> Self {
@@ -74,8 +86,8 @@ impl Shader {
         assert!(matches!(frag.kind, SubShaderType::Frag));
 
         let id = gl_call!(gl::CreateProgram());
-        gl_call!(gl::AttachShader(id, vert.id));
-        gl_call!(gl::AttachShader(id, frag.id));
+        gl_call!(gl::AttachShader(id, vert.id()));
+        gl_call!(gl::AttachShader(id, frag.id()));
         gl_call!(gl::LinkProgram(id));
 
         let mut success = 0;
@@ -87,29 +99,14 @@ impl Shader {
             eprintln!("Shader Linking Error:\n{str_form}");
         }
 
-        return Self { id, unique: true };
+        return Self { core: Some(Arc::new(ShaderCore(id))) };
     }
 
     pub fn enable(&self) {
-        gl_call!(gl::UseProgram(self.id));
+        gl_call!(gl::UseProgram(self.id()));
     }
 
     pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    pub fn clone_obj(&mut self) -> Self {
-        self.unique = false;
-        return Self { id: self.id, unique: false }
-    }
-}
-
-impl Drop for Shader {
-    fn drop(&mut self) {
-        if self.id == 0 || !self.unique {
-            return;
-        }
-
-        gl_call!(gl::DeleteProgram(self.id));
+        self.core.as_ref().unwrap().0
     }
 }
