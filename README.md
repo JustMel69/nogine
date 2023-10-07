@@ -4,9 +4,10 @@
 - Texture rendering
 - Custom Shaders
 - Basic uniform support
+- Alpha and Blending modes
 
 # TODO
-## Graphics
-- Alpha
-- Blending modes
-- (?) Batch meshing
+## Audio
+- Audio channels
+- Simple audio playing
+- Stereo audio

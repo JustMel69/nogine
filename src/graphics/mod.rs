@@ -114,6 +114,9 @@ impl Graphics {
     pub(crate) fn init() {
         let mut writer = GRAPHICS.write().unwrap();
         writer.default_shaders = DefaultShaders::new();
+
+        gl_call!(gl::Enable(gl::BLEND));
+        Self::set_blending_mode(BlendingMode::AlphaMix);
     }
 
     pub fn tick(aspect_ratio: f32) {
@@ -315,6 +318,14 @@ impl Graphics {
         }
     }
 
+    pub fn set_blending_mode(mode: BlendingMode) {
+        match mode {
+            BlendingMode::AlphaMix => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA)),
+            BlendingMode::Additive => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE)),
+            BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
+        }
+    }
+
     pub fn set_pixels_per_unit(ppu: f32) {
         assert!(ppu > 0.0);
 
@@ -368,4 +379,8 @@ impl Graphics {
     }
 }
 
-
+pub enum BlendingMode {
+    AlphaMix,
+    Additive,
+    Multiplicative,
+}
