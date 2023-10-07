@@ -40,7 +40,7 @@ const DEF_PLAIN_FRAG: &str = include_str!("../inline/def_plain_shader.frag");
 const DEF_UV_VERT: &str = include_str!("../inline/def_uv_shader.vert");
 const DEF_TEX_FRAG: &str = include_str!("../inline/def_tex_shader.frag");
 
-const DEF_ELLIPSE_FRAG_SHADER: &str = include_str!("../inline/def_ellipse_shader.frag");
+const DEF_ELLIPSE_FRAG: &str = include_str!("../inline/def_ellipse_shader.frag");
 
 const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
 struct CamData {
@@ -48,43 +48,71 @@ struct CamData {
     height: f32,
 }
 
+pub struct DefaultShaders {
+    def_plain_vert: SubShader,
+    def_plain_frag: SubShader,
+    def_uv_vert: SubShader,
+    def_tex_frag: SubShader,
+    def_ellipse_frag: SubShader,
+
+    def_rect_shader: Shader,
+    def_tex_shader: Shader,
+    def_ellipse_shader: Shader,
+}
+
+impl DefaultShaders {
+    pub const fn invalid() -> Self {
+        return Self { def_plain_vert: SubShader::invalid(), def_plain_frag: SubShader::invalid(), def_uv_vert: SubShader::invalid(), def_tex_frag: SubShader::invalid(), def_ellipse_frag: SubShader::invalid(), def_rect_shader: Shader::invalid(), def_tex_shader: Shader::invalid(), def_ellipse_shader: Shader::invalid() };
+    }
+
+    fn new() -> Self {
+        let def_plain_vert = SubShader::new(&DEF_PLAIN_VERT, SubShaderType::Vert);
+        let def_plain_frag = SubShader::new(&DEF_PLAIN_FRAG, SubShaderType::Frag);
+        let def_uv_vert = SubShader::new(&DEF_UV_VERT, SubShaderType::Vert);
+        let def_tex_frag = SubShader::new(&DEF_TEX_FRAG, SubShaderType::Frag);
+        let def_ellipse_frag = SubShader::new(&DEF_ELLIPSE_FRAG, SubShaderType::Frag);
+        
+        let def_rect_shader = Shader::new(&def_plain_vert, &def_plain_frag);
+        let def_tex_shader = Shader::new(&def_uv_vert, &def_tex_frag);
+        let def_ellipse_shader = Shader::new(&def_uv_vert, &def_ellipse_frag);
+
+        return Self { def_plain_vert, def_plain_frag, def_uv_vert, def_tex_frag, def_ellipse_frag, def_rect_shader, def_tex_shader, def_ellipse_shader };
+    }
+
+    pub fn def_plain_vert() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_plain_vert.clone() }
+    pub fn def_plain_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_plain_frag.clone() }
+    pub fn def_uv_vert() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_uv_vert.clone() }
+    pub fn def_tex_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_tex_frag.clone() }
+    pub fn def_ellipse_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_frag.clone() }
+    pub fn def_rect_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_rect_shader.clone() }
+    pub fn def_tex_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_tex_shader.clone() }
+    pub fn def_ellipse_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_shader.clone() }
+}
+
+
 pub struct Graphics {
     mode: Mode,
     scheduled_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
     
-    def_rect_shader: Shader,
-    def_tex_shader: Shader,
-    def_ellipse_shader: Shader,
-
     pixels_per_unit: f32,
 
-    curr_custom_shader: Option<Shader>,
+    default_shaders: DefaultShaders,
+
+    rect_shader: Option<Shader>,
+    tex_shader: Option<Shader>,
+    ellipse_shader: Option<Shader>,
+    custom_shader: Option<Shader>,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        Self { mode: Mode::Unset, def_rect_shader: Shader::invalid(), scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, def_tex_shader: Shader::invalid(), pixels_per_unit: 1.0, def_ellipse_shader: Shader::invalid(), curr_custom_shader: None }
+        return Self { mode: Mode::Unset, scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_shader: None, tex_shader: None, ellipse_shader: None, custom_shader: None };
     }
 
     pub(crate) fn init() {
-        let uv_vert = SubShader::new(&DEF_UV_VERT, SubShaderType::Vert);
-        
         let mut writer = GRAPHICS.write().unwrap();
-        writer.def_rect_shader = Shader::new(
-            &SubShader::new(&DEF_PLAIN_VERT, SubShaderType::Vert),
-            &SubShader::new(&DEF_PLAIN_FRAG, SubShaderType::Frag),
-        );
-
-        writer.def_tex_shader = Shader::new(
-            &uv_vert,
-            &SubShader::new(&DEF_TEX_FRAG, SubShaderType::Frag),
-        );
-
-        writer.def_ellipse_shader = Shader::new(
-            &uv_vert,
-            &SubShader::new(&DEF_ELLIPSE_FRAG_SHADER, SubShaderType::Frag),
-        );
+        writer.default_shaders = DefaultShaders::new();
     }
 
     pub fn tick(aspect_ratio: f32) {
@@ -231,7 +259,7 @@ impl Graphics {
 
 
 
-    pub fn draw_custom_mesh<T>(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[T], tri_data: &[u16]) {
+    pub fn draw_custom_mesh<T>(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[T], tri_data: &[u16], vert_attribs: &[usize]) {
         assert!(tri_data.len() % 3 == 0);
 
         Self::change_mode(Mode::Custom);
@@ -245,18 +273,24 @@ impl Graphics {
         let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
         ebo.set_data(tri_data);
         
-        set_vertex_attribs(&[2, 4]);
+        set_vertex_attribs(vert_attribs);
 
         Self::set_tf_mat(Matrix3x3::transform_matrix(pos, rot, scale));
         vao.bind();
         gl_call!(gl::DrawElements(gl::TRIANGLES, tri_data.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null()));
     }
 
-    pub fn set_shader(shader: Shader, mode: Mode) {
-        assert!(matches!(mode, Mode::Custom));
+    pub fn set_shader(shader: Option<Shader>, mode: Mode) {
+        assert!(!matches!(mode, Mode::Unset));
 
         let mut writer = GRAPHICS.write().unwrap();
-        writer.curr_custom_shader = Some(shader);
+        match mode {
+            Mode::Unset => unreachable!(),
+            Mode::Rect => writer.rect_shader = shader,
+            Mode::Textured => writer.tex_shader = shader,
+            Mode::Ellipse => writer.ellipse_shader = shader,
+            Mode::Custom => writer.custom_shader = shader,
+        }
     }
 
     pub fn set_pixels_per_unit(ppu: f32) {
@@ -280,8 +314,8 @@ impl Graphics {
         }
 
         set_vertex_attribs(&[2, 4]);
-        writer.def_rect_shader.enable();
         writer.mode = mode;
+        writer.get_current_shader().unwrap().enable();
     }
 
     const MVM_NAME: [u8; 4] = [b'm', b'v', b'm', 0];
@@ -304,10 +338,10 @@ impl Graphics {
     fn get_current_shader(&self) -> Option<&Shader> {
         match self.mode {
             Mode::Unset => None,
-            Mode::Rect => Some(&self.def_rect_shader),
-            Mode::Textured => Some(&self.def_tex_shader),
-            Mode::Ellipse => Some(&self.def_ellipse_shader),
-            Mode::Custom => self.curr_custom_shader.as_ref(),
+            Mode::Rect => Some(self.rect_shader.as_ref().unwrap_or(&self.default_shaders.def_rect_shader)),
+            Mode::Textured => Some(self.tex_shader.as_ref().unwrap_or(&self.default_shaders.def_tex_shader)),
+            Mode::Ellipse => Some(self.ellipse_shader.as_ref().unwrap_or(&self.default_shaders.def_ellipse_shader)),
+            Mode::Custom => self.custom_shader.as_ref(),
         }
     }
 }
