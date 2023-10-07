@@ -1,8 +1,8 @@
-use std::{sync::RwLock, f32::consts::PI};
+use std::{sync::RwLock, f32::consts::PI, ffi::CString};
 
 use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
-use self::{shader::{Shader, SubShader, SubShaderType}, texture::Texture};
+use self::{shader::{Shader, SubShader, SubShaderType}, texture::Texture, uniforms::Uniform};
 
 use super::gl_call;
 
@@ -10,6 +10,7 @@ pub mod shader;
 pub mod buffers;
 pub mod verts;
 pub mod texture;
+pub mod uniforms;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
@@ -283,6 +284,7 @@ impl Graphics {
     pub fn set_shader(shader: Option<Shader>, mode: Mode) {
         assert!(!matches!(mode, Mode::Unset));
 
+        Self::change_mode(mode);
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
             Mode::Unset => unreachable!(),
@@ -290,6 +292,26 @@ impl Graphics {
             Mode::Textured => writer.tex_shader = shader,
             Mode::Ellipse => writer.ellipse_shader = shader,
             Mode::Custom => writer.custom_shader = shader,
+        }
+    }
+
+    pub fn set_uniform(name: &str, value: Uniform) {
+        let name = CString::new(name).unwrap();
+        
+        let location = {
+            let reader = GRAPHICS.read().unwrap();
+            let shader = reader.get_current_shader().unwrap();
+            shader.enable();
+            gl_call!(gl::GetUniformLocation(shader.id(), name.as_ptr()))
+        };
+
+        match value {
+            Uniform::Float(x) => gl_call!(gl::Uniform1f(location, x)),
+            Uniform::Float2(x, y) => gl_call!(gl::Uniform2f(location, x, y)),
+            Uniform::Float3(x, y, z) => gl_call!(gl::Uniform3f(location, x, y, z)),
+            Uniform::Float4(x, y, z, w) => gl_call!(gl::Uniform4f(location, x, y, z ,w)),
+            Uniform::Int(x) => gl_call!(gl::Uniform1i(location, x)),
+            Uniform::Uint(x) => gl_call!(gl::Uniform1ui(location, x)),
         }
     }
 

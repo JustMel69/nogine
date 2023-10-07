@@ -1,6 +1,12 @@
+# Features
+## Graphics
+- Primitive rendering
+- Texture rendering
+- Custom Shaders
+- Basic uniform support
+
 # TODO
 ## Graphics
-- Materials
 - Alpha
 - Blending modes
 - (?) Batch meshing
