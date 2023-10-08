@@ -5,6 +5,7 @@ pub mod input;
 pub mod color;
 pub mod graphics;
 pub mod math;
+pub mod audio;
 
 type Res<T, E> = Result<T, E>;
 
