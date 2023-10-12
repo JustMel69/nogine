@@ -11,3 +11,4 @@ glfw = "0.52.0"
 png = "0.17.10"
 rodio = { version = "0.17.1", default-features = false, features = ["wav"] }
 thiserror = "1.0.48"
+uuid = { version = "1.4.1", features = ["v4"] }
