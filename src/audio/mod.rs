@@ -1,41 +1,153 @@
-use std::{sync::Mutex, cell::RefCell};
+use std::{io::Cursor, collections::HashMap};
 
-use rodio::{OutputStream, Sink, OutputStreamHandle};
+use rodio::{OutputStream, Sink, OutputStreamHandle, Decoder, SpatialSink};
+use uuid::Uuid;
+
+use self::clip::AudioClip;
 
 pub mod clip;
 
-thread_local! {
-    static AUDIO: RefCell<Mutex<Audio>> = const { RefCell::new(Mutex::new(Audio::new())) };
+// TODO: Make this shit less unsafe
+static mut AUDIO: Option<Audio> = None;
+
+enum AudioPlayer {
+    Simple(Sink),
+    Panned(SpatialSink),
+}
+
+impl AudioPlayer {
+    fn pause(&self) {
+        match self {
+            AudioPlayer::Simple(x) => x.pause(),
+            AudioPlayer::Panned(x) => x.pause(),
+        }
+    }
+
+    fn stop(&self) {
+        match self {
+            AudioPlayer::Simple(x) => x.stop(),
+            AudioPlayer::Panned(x) => x.stop(),
+        }
+    }
+
+    fn play(&self) {
+        match self {
+            AudioPlayer::Simple(x) => x.play(),
+            AudioPlayer::Panned(x) => x.play(),
+        }
+    }
+
+    fn empty(&self) -> bool {
+        match self {
+            AudioPlayer::Simple(x) => x.empty(),
+            AudioPlayer::Panned(x) => x.empty(),
+        }
+    }
+
+    fn is_paused(&self) -> bool {
+        match self {
+            AudioPlayer::Simple(x) => x.is_paused(),
+            AudioPlayer::Panned(x) => x.is_paused(),
+        }
+    }
 }
 
 
 pub struct Audio {
-    _stream: Option<OutputStream>,
-    stream_handle: Option<OutputStreamHandle>,
-    sink: Option<Sink>,
+    _stream: OutputStream,
+    stream_handle: OutputStreamHandle,
+    clips: HashMap<Uuid, AudioPlayer>,
 }
 
 impl Audio {
-    pub const fn new() -> Self {
-        Self { _stream: None, stream_handle: None, sink: None }
+    fn new() -> Self {
+        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+        Self { _stream, stream_handle, clips: HashMap::new() }
     }
     
-    pub fn init() {
-        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-        let sink = Sink::try_new(&stream_handle).unwrap();
-
-        AUDIO.with(|audio| {
-            let audio = audio.borrow_mut();
-            let mut audio = audio.lock().unwrap();
-
-            audio._stream = Some(_stream);
-            audio.stream_handle = Some(stream_handle);
-            audio.sink = Some(sink);
-            sink.append(source)
-        });
+    pub(crate) fn init() {
+        unsafe { AUDIO = Some(Self::new()) };
     }
 
-    pub fn play() {
-        
+    pub fn play(clip: AudioClip, volume: f32) {
+        Self::play_ext(clip, volume, None);
+    }
+
+    pub fn play_ext(clip: AudioClip, volume: f32, panning: Option<f32>) {
+        let audio = unsafe { &mut AUDIO.as_mut().unwrap() };
+
+        let decoder = Decoder::new(Cursor::new(clip.data())).unwrap();
+        if let Some(panning) = panning {
+            let sink = SpatialSink::try_new(&audio.stream_handle, [panning, 0.0, 0.0], [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]).unwrap();
+
+            sink.append(decoder);
+            sink.set_speed(volume);
+            sink.play();
+    
+            audio.clips.insert(clip.uuid(), AudioPlayer::Panned(sink));
+        } else {
+            let sink = Sink::try_new(&audio.stream_handle).unwrap();
+    
+            sink.append(decoder);
+            sink.set_speed(volume);
+            sink.play();
+    
+            audio.clips.insert(clip.uuid(), AudioPlayer::Simple(sink));
+        }
+
+    }
+
+    pub fn pause(clip: &AudioClip) {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        if let Some(player) = audio.clips.get(&clip.uuid()) {
+            player.pause();
+        };
+    }
+
+    pub fn resume(clip: &AudioClip) {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        if let Some(player) = audio.clips.get(&clip.uuid()) {
+            player.play();
+        };
+    }
+
+    pub fn stop(clip: &AudioClip) {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        if let Some(player) = audio.clips.get(&clip.uuid()) {
+            player.stop();
+        };
+    }
+
+    pub fn is_fully_playing(clip: &AudioClip) -> bool {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        if let Some(player) = audio.clips.get(&clip.uuid()) {
+            !player.empty() && !player.is_paused()
+        } else {
+            false
+        }
+    }
+
+    pub fn is_playing_or_paused(clip: &AudioClip) -> bool {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        if let Some(player) = audio.clips.get(&clip.uuid()) {
+            !player.empty()
+        } else {
+            false
+        }
+    }
+
+    pub fn is_paused(clip: &AudioClip) -> bool {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        if let Some(player) = audio.clips.get(&clip.uuid()) {
+            player.is_paused()
+        } else {
+            false
+        }
     }
 }

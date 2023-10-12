@@ -6,8 +6,10 @@
 - Basic uniform support
 - Alpha and Blending modes
 
+## Audio
+- Simple audio playing
+
 # TODO
 ## Audio
 - Audio channels
-- Simple audio playing
 - Stereo audio

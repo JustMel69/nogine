@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, color::Color4, graphics::Graphics};
+use crate::{Res, input::Input, color::Color4, graphics::Graphics, audio::Audio};
 
 use super::gl_call;
 
@@ -66,6 +66,7 @@ impl<'a> WindowCfg<'a> {
         gl_call!(gl::Viewport(0, 0, self.res.0 as i32, self.res.1 as i32));
         
         Graphics::init();
+        Audio::init();
 
         return Ok(Window { window, events, main: self.main, glfw });
     }
