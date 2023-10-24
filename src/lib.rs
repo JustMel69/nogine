@@ -6,6 +6,9 @@ pub mod color;
 pub mod graphics;
 pub mod math;
 pub mod audio;
+pub mod utils {
+    pub mod heap;
+}
 
 type Res<T, E> = Result<T, E>;
 
