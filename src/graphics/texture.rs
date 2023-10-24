@@ -1,12 +1,10 @@
-use std::io::Read;
+use std::io::{Read, Seek, BufReader};
 
-use png::Decoder;
+use image::{EncodableLayout, GenericImageView};
+
+use crate::math::Rect;
 
 use super::super::gl_call;
-
-pub enum ColorKind {
-    RGB, RGBA
-}
 
 pub enum TextureFiltering {
     Closest, Linear
@@ -27,6 +25,13 @@ impl Default for TextureCfg {
     }
 }
 
+pub enum TextureFormat {
+    R,
+    RA,
+    RGB,
+    RGBA,
+}
+
 
 pub struct Texture {
     id: u32,
@@ -35,30 +40,67 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn load(src: impl Read, cfg: TextureCfg) -> Self {
-        let mut decoder = Decoder::new(src);
-        let header = decoder.read_header_info().unwrap();
-        let dims = header.size();
+    pub fn load(src: impl Read + Seek, cfg: TextureCfg) -> Self {
+        let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().unwrap();
+        let img = decoder.decode().unwrap();
+        let dims = img.dimensions();
         
-        let kind = match header.color_type {
-            png::ColorType::Grayscale => panic!("Grayscale not supported"),
-            png::ColorType::Rgb => ColorKind::RGB,
-            png::ColorType::Indexed => panic!("Indexed not supported"),
-            png::ColorType::GrayscaleAlpha => panic!("Grayscale alpha not supported"),
-            png::ColorType::Rgba => ColorKind::RGBA,
+        let (data, fmt) = match img {
+            image::DynamicImage::ImageLuma8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::R)
+            },
+            image::DynamicImage::ImageLumaA8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::RA)
+            },
+            image::DynamicImage::ImageRgb8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::RGB)
+            },
+            image::DynamicImage::ImageRgba8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::RGBA)
+            },
+            image::DynamicImage::ImageLuma16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::R)
+            },
+            image::DynamicImage::ImageLumaA16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::RA)
+            },
+            image::DynamicImage::ImageRgb16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::RGB)
+            },
+            image::DynamicImage::ImageRgba16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::RGBA)
+            },
+            image::DynamicImage::ImageRgb32F(img) => {
+                let data = img.as_bytes().chunks(4).map(|x| {
+                    let buf = [x[0], x[1], x[2], x[3]];
+                    let x = f32::from_le_bytes(buf);
+                    (x * 256.0).min(255.0) as u8
+                }).collect();
+                (data, TextureFormat::RGB)
+            },
+            image::DynamicImage::ImageRgba32F(img) => {
+                let data = img.as_bytes().chunks(4).map(|x| {
+                    let buf = [x[0], x[1], x[2], x[3]];
+                    let x = f32::from_le_bytes(buf);
+                    (x * 256.0).min(255.0) as u8
+                }).collect();
+                (data, TextureFormat::RGBA)
+            },
+            _ => panic!("Unsupported texture format"),
         };
 
-        let mut reader = decoder.read_info().unwrap();
-        let size = reader.output_buffer_size();
-
-        let mut out_buff = vec![0; size];
-        reader.next_frame(out_buff.as_mut_slice()).unwrap();
-        let colors: Box<[u8]> = out_buff.into();
-        
-        return Self::new(colors, dims, kind, cfg);
+        return Self::new(data, fmt, dims, cfg);
     }
 
-    pub fn new(colors: Box<[u8]>, dims: (u32, u32), kind: ColorKind, cfg: TextureCfg) -> Self {
+    pub fn new(rgba_colors: Box<[u8]>, fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
         assert!(dims.0 != 0 && dims.1 != 0);
         
         let mut id = 0;
@@ -76,19 +118,21 @@ impl Texture {
             TextureFiltering::Linear => gl::LINEAR,
         };
 
+        let internal_fmt = match fmt {
+            TextureFormat::R => gl::RED,
+            TextureFormat::RA => gl::RG,
+            TextureFormat::RGB => gl::RGB,
+            TextureFormat::RGBA => gl::RGBA,
+        };
+
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filtering as i32));
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filtering as i32));
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, wrapping as i32));
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrapping as i32));
 
-        let kind = match kind {
-            ColorKind::RGB => gl::RGB,
-            ColorKind::RGBA => gl::RGBA,
-        };
+        gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba_colors.as_ptr() as *const std::ffi::c_void));
 
-        gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, kind as i32, dims.0 as i32, dims.1 as i32, 0, kind, gl::UNSIGNED_BYTE, colors.as_ptr() as *const std::ffi::c_void));
-
-        return Texture { id, _colors: colors, dims };
+        return Texture { id, _colors: rgba_colors, dims };
     }
 
 
@@ -104,3 +148,46 @@ impl Texture {
     }
 }
 
+
+pub struct Sprite<'a>(&'a Texture, Rect);
+
+impl<'a> Sprite<'a> {
+    pub fn tex(&self) -> &'a Texture {
+        self.0
+    }
+
+    pub fn rect(&self) -> Rect {
+        self.1
+    }
+}
+
+
+#[derive(Clone, Copy)]
+pub struct SprRect(pub u32, pub u32, pub u32, pub u32);
+
+pub struct SpriteAtlas {
+    internal: Texture,
+    sprite_dims: (u32, u32),
+}
+
+impl SpriteAtlas {
+    pub fn new(tex: Texture, cell_dims: (u32, u32))  -> Self{
+        return Self { internal: tex, sprite_dims: cell_dims };
+    }
+
+    pub fn get(&self, rect: SprRect) -> Sprite<'_> {
+        let tex_dims = self.internal.dims;
+        
+        let p_pos = (rect.0 * self.sprite_dims.0, rect.1 * self.sprite_dims.1);
+        let p_size = (rect.2 * self.sprite_dims.0, rect.3 * self.sprite_dims.1);
+
+        let uv_rect = Rect(
+            (p_pos.0 as f32) / (tex_dims.0 as f32),
+            (p_pos.1 as f32) / (tex_dims.1 as f32),
+            (p_size.0 as f32) / (tex_dims.0 as f32),
+            (p_size.1 as f32) / (tex_dims.1 as f32),
+        );
+
+        return Sprite(&self.internal, uv_rect);
+    }
+}

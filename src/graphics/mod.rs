@@ -1,8 +1,8 @@
 use std::{sync::RwLock, f32::consts::PI, ffi::CString};
 
-use crate::{math::{Vector2, Matrix3x3}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
-use self::{shader::{Shader, SubShader, SubShaderType}, texture::Texture, uniforms::Uniform};
+use self::{shader::{Shader, SubShader, SubShaderType}, texture::{Texture, Sprite}, uniforms::Uniform};
 
 use super::gl_call;
 
@@ -154,16 +154,20 @@ impl Graphics {
     // |>-<   Texture Drawing   >-<| //
 
     pub fn draw_texture(left_down: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
-        Self::draw_texture_full(left_down, scale, rot, [Color4::WHITE; 4], tex)
+        Self::draw_texture_full(left_down, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
-    pub fn draw_texture_full(left_down: Vector2, scale: Vector2, rot: f32, colors: [Color4; 4], tex: &Texture) {
+    pub fn draw_sprite(left_down: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
+        Self::draw_texture_full(left_down, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
+    }
+
+    pub fn draw_texture_full(left_down: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
         Self::change_mode(Mode::Textured);
 
-        let vert_data = [Vert(Vector2::ZERO, colors[0], Vector2::UP), Vert(Vector2::UP, colors[1], Vector2::ZERO), Vert(Vector2::ONE, colors[2], Vector2::RIGHT), Vert(Vector2::RIGHT, colors[3], Vector2::ONE)];
+        let vert_data = [Vert(Vector2::ZERO, colors[0], uvs.lu()), Vert(Vector2::UP, colors[1], uvs.ld()), Vert(Vector2::ONE, colors[2], uvs.rd()), Vert(Vector2::RIGHT, colors[3], uvs.ru())];
 
         tex.enable(0); // main_texture is always 0
 
@@ -172,7 +176,7 @@ impl Graphics {
             let reader = GRAPHICS.read().unwrap();
             reader.pixels_per_unit
         };
-        let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale);
+        let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale).scale(uvs.size());
 
         Self::draw_rect_internal(left_down, extents, rot, &vert_data, &[2, 4, 2]);
     }
