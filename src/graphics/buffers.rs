@@ -8,14 +8,20 @@ pub struct GlBuffer {
 }
 
 impl GlBuffer {
-    pub fn new(kind: gltyp::GLenum) -> Self {
-        assert!(kind == gl::ARRAY_BUFFER || kind == gl::ELEMENT_ARRAY_BUFFER);
-
+    pub fn new_vbo() -> Self {
         let mut id = 0;
         gl_call!(gl::GenBuffers(1, &mut id));
         assert!(id != 0, "Invalid buffer");
 
-        Self { id, kind }
+        Self { id, kind: gl::ARRAY_BUFFER }
+    }
+
+    pub fn new_ebo() -> Self {
+        let mut id = 0;
+        gl_call!(gl::GenBuffers(1, &mut id));
+        assert!(id != 0, "Invalid buffer");
+
+        Self { id, kind: gl::ELEMENT_ARRAY_BUFFER }
     }
 
     pub fn set_data<T>(&self, data: &[T]) {

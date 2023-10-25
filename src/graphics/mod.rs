@@ -185,10 +185,10 @@ impl Graphics {
         let vao = GlVAO::new();
         vao.bind();
         
-        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        let vbo = GlBuffer::new_vbo();
         vbo.set_data(vert_data);
         
-        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        let ebo = GlBuffer::new_ebo();
         ebo.set_data(&Self::RECT_TRIS);
         
         set_vertex_attribs(attribs);
@@ -252,10 +252,10 @@ impl Graphics {
         let vao = GlVAO::new();
         vao.bind();
         
-        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        let vbo = GlBuffer::new_vbo();
         vbo.set_data(verts.as_slice());
         
-        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        let ebo = GlBuffer::new_ebo();
         ebo.set_data(tris.as_slice());
         
         set_vertex_attribs(&[2, 4]);
@@ -275,10 +275,10 @@ impl Graphics {
         let vao = GlVAO::new();
         vao.bind();
         
-        let vbo = GlBuffer::new(gl::ARRAY_BUFFER);
+        let vbo = GlBuffer::new_vbo();
         vbo.set_data(vert_data);
         
-        let ebo = GlBuffer::new(gl::ELEMENT_ARRAY_BUFFER);
+        let ebo = GlBuffer::new_ebo();
         ebo.set_data(tri_data);
         
         set_vertex_attribs(vert_attribs);
