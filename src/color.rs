@@ -55,7 +55,7 @@ impl Color for Color4 {
     const YELLOW: Self = Color4(1.0, 1.0, 0.0, 1.0);
     const LIME: Self = Color4(0.5, 1.0, 0.0, 1.0);
     const GREEN: Self = Color4(0.0, 1.0, 0.0, 1.0);
-    const CYAN: Self = Color4(0.0, 1.0, 1.0, 0.0);
+    const CYAN: Self = Color4(0.0, 1.0, 1.0, 1.0);
     const BLUE: Self = Color4(0.0, 0.0, 1.0, 1.0);
     const PURPLE: Self = Color4(0.5, 0.0, 1.0, 1.0);
     const PINK: Self = Color4(1.0, 0.0, 1.0, 1.0);
