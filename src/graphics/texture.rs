@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, BufReader};
+use std::{io::{Read, Seek, BufReader}, sync::Arc};
 
 use image::{EncodableLayout, GenericImageView};
 
@@ -32,9 +32,25 @@ pub enum TextureFormat {
     RGBA,
 }
 
+#[repr(transparent)]
+pub(crate) struct TextureCore(Arc<u32>);
+impl Drop for TextureCore {
+    fn drop(&mut self) {
+        gl_call!(gl::DeleteTextures(1, self.0.as_ref()))
+    }
+}
+
+impl TextureCore {
+    pub fn enable(&self, slot: u8) {
+        assert!(slot < 16);
+
+        gl_call!(gl::ActiveTexture(gl::TEXTURE0 + slot as u32));
+        gl_call!(gl::BindTexture(gl::TEXTURE_2D, *self.0));
+    }
+}
 
 pub struct Texture {
-    id: u32,
+    id: TextureCore,
     _colors: Box<[u8]>,
     dims: (u32, u32)
 }
@@ -132,15 +148,12 @@ impl Texture {
 
         gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba_colors.as_ptr() as *const std::ffi::c_void));
 
-        return Texture { id, _colors: rgba_colors, dims };
+        return Texture { id: TextureCore(Arc::new(id)), _colors: rgba_colors, dims };
     }
 
 
     pub fn enable(&self, slot: u8) {
-        assert!(slot < 16);
-
-        gl_call!(gl::ActiveTexture(gl::TEXTURE0 + slot as u32));
-        gl_call!(gl::BindTexture(gl::TEXTURE_2D, self.id));
+        self.id.enable(slot);
     }
 
     pub fn dims(&self) -> (u32, u32) {
