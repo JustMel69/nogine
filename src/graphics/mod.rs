@@ -2,7 +2,9 @@ use std::{sync::RwLock, f32::consts::PI, ffi::CString};
 
 use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
 
-use self::{shader::{Shader, SubShader, SubShaderType}, texture::{Texture, Sprite}, uniforms::Uniform};
+use self::{shader::{Shader, SubShader, SubShaderType}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
+
+use self::batch::RefBatchState;
 
 use super::gl_call;
 
@@ -11,6 +13,7 @@ pub mod buffers;
 pub mod verts;
 pub mod texture;
 pub mod uniforms;
+pub(crate) mod batch;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
@@ -104,6 +107,10 @@ pub struct Graphics {
     tex_shader: Option<Shader>,
     ellipse_shader: Option<Shader>,
     custom_shader: Option<Shader>,
+
+    curr_batch: Option<BatchMesh>,
+    ready_batches: Option<Vec<BatchProduct>>,
+    render_batches: Option<Vec<BatchProduct>>,
 }
 
 impl Graphics {
@@ -137,16 +144,26 @@ impl Graphics {
         Self::draw_rect_full(left_down, extents, 0.0, [color; 4])
     }
     
-    const RECT_TRIS: [u16; 6] = [0, 1, 2, 2, 3, 0];
+    const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
     pub fn draw_rect_full(left_down: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
         #[repr(C)]
         struct Vert(Vector2, Color4);
     
         Self::change_mode(Mode::Rect);
 
-        let vert_data = [Vert(Vector2::ZERO, colors[0]), Vert(Vector2::UP, colors[1]), Vert(Vector2::ONE, colors[2]), Vert(Vector2::RIGHT, colors[3])];
+        let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
+        let vert_data = [Vert(tf_mat * Vector2::ZERO, colors[0]), Vert(tf_mat * Vector2::UP, colors[1]), Vert(tf_mat * Vector2::ONE, colors[2]), Vert(tf_mat * Vector2::RIGHT, colors[3])];
 
-        Self::draw_rect_internal(left_down, extents, rot, &vert_data, &[2, 4]);
+        let state = RefBatchState {
+            shader: Self::get_shader(Mode::Rect).unwrap(),
+            uniforms: Self::get_uniforms(),
+            attribs: &[2, 4],
+            textures: &[],
+            blending: Self::get_blending(),
+        };
+
+        let vert_data = convert_vert_data(&vert_data);
+        Self::draw_rect_internal(vert_data, state);
     }
 
 
@@ -167,8 +184,6 @@ impl Graphics {
 
         Self::change_mode(Mode::Textured);
 
-        let vert_data = [Vert(Vector2::ZERO, colors[0], uvs.lu()), Vert(Vector2::UP, colors[1], uvs.ld()), Vert(Vector2::ONE, colors[2], uvs.rd()), Vert(Vector2::RIGHT, colors[3], uvs.ru())];
-
         tex.enable(0); // main_texture is always 0
 
         let tex_res = tex.dims();
@@ -178,24 +193,26 @@ impl Graphics {
         };
         let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale).scale(uvs.size());
 
-        Self::draw_rect_internal(left_down, extents, rot, &vert_data, &[2, 4, 2]);
+        let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
+        let vert_data = [Vert(tf_mat * Vector2::ZERO, colors[0], uvs.lu()), Vert(tf_mat * Vector2::UP, colors[1], uvs.ld()), Vert(tf_mat * Vector2::ONE, colors[2], uvs.rd()), Vert(tf_mat * Vector2::RIGHT, colors[3], uvs.ru())];
+
+        let state = RefBatchState {
+            shader: Self::get_shader(Mode::Textured).unwrap(),
+            uniforms: Self::get_uniforms(),
+            attribs: &[2, 4, 2],
+            textures: &[tex],
+            blending: Self::get_blending(),
+        };
+
+        let vert_data = convert_vert_data(&vert_data);
+        Self::draw_rect_internal(&vert_data, state);
     }
     
-    fn draw_rect_internal<T>(left_down: Vector2, extents: Vector2, rot: f32, vert_data: &[T], attribs: &[usize]) {
-        let vao = GlVAO::new();
-        vao.bind();
-        
-        let vbo = GlBuffer::new_vbo();
-        vbo.set_data(vert_data);
-        
-        let ebo = GlBuffer::new_ebo();
-        ebo.set_data(&Self::RECT_TRIS);
-        
-        set_vertex_attribs(attribs);
+    fn draw_rect_internal<T>(vert_data: &[f32], state: RefBatchState) {
+        Self::set_state(state);
 
-        Self::set_tf_mat(Matrix3x3::transform_matrix(left_down, rot, extents));
-        vao.bind();
-        gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_SHORT, std::ptr::null()));
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.curr_batch.unwrap().push(vert_data, &Self::RECT_TRIS);
     }
 
 
@@ -212,9 +229,19 @@ impl Graphics {
 
         Self::change_mode(Mode::Ellipse);
 
-        let vert_data = [Vert(Vector2::ZERO, color, Vector2::UP), Vert(Vector2::UP, color, Vector2::ZERO), Vert(Vector2::ONE, color, Vector2::RIGHT), Vert(Vector2::RIGHT, color, Vector2::ONE)];
+        let mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
+        let vert_data = [Vert(mat * Vector2::ZERO, color, Vector2::UP), Vert(mat * Vector2::UP, color, Vector2::ZERO), Vert(mat * Vector2::ONE, color, Vector2::RIGHT), Vert(mat * Vector2::RIGHT, color, Vector2::ONE)];
 
-        Self::draw_rect_internal(center - half_extents, half_extents * 2.0, rot, &vert_data, &[2, 4, 2]);
+        let state = RefBatchState {
+            shader: Self::get_shader(Mode::Ellipse),
+            uniforms: Self::get_uniforms(),
+            attribs: &[2, 4, 2],
+            textures: &[],
+            blending: Self::get_blending(),
+        };
+
+        let vert_data = convert_vert_data(&vert_data);
+        Self::draw_rect_internal(vert_data, state);
     }
 
 
@@ -236,10 +263,12 @@ impl Graphics {
         let delta_theta = (2.0 * PI) / (sides as f32);
         let mut verts = Vec::with_capacity(1 + sides as usize);
 
-        verts.push(Vert(Vector2::ZERO, color));
+        let mat = Matrix3x3::transform_matrix(center, rot, half_extents);
+
+        verts.push(Vert(mat * Vector2::ZERO, color));
         for i in 0..sides {
             let theta = delta_theta * (i as f32);
-            let pos = Vector2::UP.rotate(theta);
+            let pos = mat * Vector2::UP.rotate(theta);
             verts.push(Vert(pos, color));
         }
         let mut tris: Vec<u16> = Vec::with_capacity(sides as usize * 3);
@@ -248,21 +277,21 @@ impl Graphics {
             let j = (i % sides) + 1;
             tris.extend_from_slice(&[0, i, j])
         }
+        
+        let state = RefBatchState {
+            shader: Self::get_shader(Mode::Rect).unwrap(),
+            uniforms: Self::get_uniforms(),
+            attribs: &[2, 4],
+            textures: &[],
+            blending: Self::get_blending(),
+        };
 
-        let vao = GlVAO::new();
-        vao.bind();
-        
-        let vbo = GlBuffer::new_vbo();
-        vbo.set_data(verts.as_slice());
-        
-        let ebo = GlBuffer::new_ebo();
-        ebo.set_data(tris.as_slice());
-        
-        set_vertex_attribs(&[2, 4]);
+        let vert_data = convert_vert_data(&verts);
 
-        Self::set_tf_mat(Matrix3x3::transform_matrix(center, rot, half_extents));
-        vao.bind();
-        gl_call!(gl::DrawElements(gl::TRIANGLES, tris.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null()));
+        Self::set_state(state);
+
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.curr_batch.unwrap().push(vert_data, &Self::RECT_TRIS);        
     }
 
 
@@ -372,13 +401,21 @@ impl Graphics {
         gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, mvm.ptr()))
     }
 
-    fn get_current_shader(&self) -> Option<&Shader> {
-        match self.mode {
+    fn get_shader(mode: Mode) -> Option<&'static Shader> {
+        let reader = GRAPHICS.read().unwrap();
+        match mode {
             Mode::Unset => None,
-            Mode::Rect => Some(self.rect_shader.as_ref().unwrap_or(&self.default_shaders.def_rect_shader)),
-            Mode::Textured => Some(self.tex_shader.as_ref().unwrap_or(&self.default_shaders.def_tex_shader)),
-            Mode::Ellipse => Some(self.ellipse_shader.as_ref().unwrap_or(&self.default_shaders.def_ellipse_shader)),
-            Mode::Custom => self.custom_shader.as_ref(),
+            Mode::Rect => Some(reader.rect_shader.as_ref().unwrap_or(&reader.default_shaders.def_rect_shader)),
+            Mode::Textured => Some(reader.tex_shader.as_ref().unwrap_or(&reader.default_shaders.def_tex_shader)),
+            Mode::Ellipse => Some(reader.ellipse_shader.as_ref().unwrap_or(&reader.default_shaders.def_ellipse_shader)),
+            Mode::Custom => reader.custom_shader.as_ref(),
+        }
+    }
+
+    pub(crate) fn render() {
+        let reader = GRAPHICS.read().unwrap();
+        for b in reader.render_batches.as_ref().unwrap() {
+            b.render();
         }
     }
 }
@@ -387,4 +424,9 @@ pub enum BlendingMode {
     AlphaMix,
     Additive,
     Multiplicative,
+}
+
+fn convert_vert_data<T>(src: &[T]) -> &[f32] {
+    let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
+    return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
 }
