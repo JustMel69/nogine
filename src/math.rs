@@ -270,6 +270,17 @@ impl Mul for &Matrix3x3 {
     }
 }
 
+impl Mul<Vector2> for Matrix3x3 {
+    type Output = Vector2;
+
+    fn mul(self, rhs: Vector2) -> Self::Output {
+        return Vector2(
+            self.rows[0][0] * rhs.0 + self.rows[0][1] * rhs.1 + self.rows[0][2],
+            self.rows[1][0] * rhs.0 + self.rows[1][1] * rhs.1 + self.rows[1][2]
+        );
+    }
+}
+
 
 #[derive(Clone, Copy)]
 pub struct Rect(pub f32, pub f32, pub f32, pub f32);
