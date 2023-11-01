@@ -1,12 +1,12 @@
-use crate::{graphics::{verts::set_vertex_attribs, Graphics}, math::Matrix3x3};
+use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3};
 
 use super::{shader::Shader, uniforms::Uniform, buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode};
 
-pub type UniformSlice<'a> = &'a [(&'a [u8], Uniform)];
+pub type UniformSlice<'a> = &'a [(Box<[u8]>, Uniform)];
 pub type UniformVec = Vec<(i32, Uniform)>;
 
 pub struct RefBatchState<'a> {
-    pub shader: &'a Shader,
+    pub shader: Shader,
     pub uniforms: UniformSlice<'a>,
     pub attribs: &'a [usize],
     pub textures: &'a [&'a Texture],
@@ -34,7 +34,7 @@ pub struct BatchState {
 }
 
 impl BatchState {
-    pub fn new<'a>(shader: Shader, uniforms: UniformSlice<'a>, attribs: Box<[usize]>, textures: Box<[TextureCore]>, blending: BlendingMode) -> Self {
+    fn new<'a>(shader: Shader, uniforms: UniformSlice<'a>, attribs: Box<[usize]>, textures: Box<[TextureCore]>, blending: BlendingMode) -> Self {
         let uniforms = uniforms.into_iter().map(|x| {
             let pos = gl_call!(gl::GetUniformLocation(shader.id(), x.0.as_ptr() as *const i8));
             (pos, x.1)
@@ -68,12 +68,25 @@ impl BatchMesh {
         vao.bind();
         
         let vbo = GlBuffer::new_vbo();
-        vbo.set_data(self.verts.as_slice());
+        vbo.bind();
+        vbo.set_data_from_slice(self.verts.as_slice());
 
         let ebo = GlBuffer::new_ebo();
-        ebo.set_data(self.tris.as_slice());
+        ebo.bind();
+        ebo.set_data_from_slice(self.tris.as_slice());
 
         return BatchProduct { vbo, ebo, vao, trilen: self.tris.len() as i32, state: self.state };
+    }
+
+    pub fn is_of_state(&self, state:&RefBatchState) -> bool {
+        return self.state.attribs.iter().eq(state.attribs.iter()) &&
+            self.state.blending == state.blending &&
+            self.state.shader == state.shader &&
+            self.state.textures.iter().eq(state.textures.iter().map(|x| x.core())) &&
+            self.state.uniforms.iter().cloned().eq(state.uniforms.iter().map(|(x,y)| {
+                let id = gl_call!(gl::GetUniformLocation(state.shader.id(), x.as_ptr() as *const i8));
+                return (id, y.clone());
+            }));
     }
 }
 
@@ -88,8 +101,12 @@ pub struct BatchProduct {
 }
 
 impl BatchProduct {
-    pub fn render(&self) {
+    pub fn render(&self, cam: Matrix3x3) {
         self.state.shader.enable();
+
+        let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.shader.id(), b"mvm\0".as_ptr() as *const i8));
+        assert!(tf_mat_address != -1);
+        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
 
         for (l, u) in &self.state.uniforms {
             match u {
@@ -113,10 +130,11 @@ impl BatchProduct {
         }
 
         self.vao.bind();
+        self.vbo.bind();
+        self.ebo.bind();
 
         set_vertex_attribs(&self.state.attribs);
 
-        Graphics::set_tf_mat(Matrix3x3::IDENTITY);
         gl_call!(gl::DrawElements(gl::TRIANGLES, self.trilen, gl::UNSIGNED_INT, std::ptr::null()));
     }
 }

@@ -187,7 +187,7 @@ impl Input {
         Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: (0.0, 0.0), mouse_flags: 0, mouse_pos: (0.0, 0.0) }
     }
 
-    pub fn flush() {
+    pub(crate) fn flush() {
         let mut writer = INPUT.write().unwrap();
         Self::flush_keyboard(&mut writer);
         Self::flush_mouse(&mut writer);

@@ -9,6 +9,8 @@ fn main() {
     let mut press_duration = 0.0;
     let mut last_frame = Instant::now();
     while window.is_running() {
+        window.pre_tick();
+        
         let ts = last_frame.elapsed().as_secs_f32();
         last_frame = Instant::now();
 
@@ -28,8 +30,6 @@ fn main() {
             press_duration += ts;
         }
         
-        // Handle window (Flushing the input must be done BEFORE handling the events or the key presses and releases will not work properly)
-        Input::flush();
-        window.handle_events();
+        window.post_tick();
     }
 }

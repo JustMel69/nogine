@@ -14,8 +14,7 @@ fn main() {
     let atlas = SpriteAtlas::new(tex, (16, 16));
 
     while window.is_running() {
-        // Refresh graphics
-        Graphics::tick(window.aspect_ratio());
+        window.pre_tick();
         window.clear_screen(Color4::BLACK);
         
         // Draw sprites
@@ -24,8 +23,6 @@ fn main() {
         Graphics::draw_sprite(Vector2( 0.0, -0.5), Vector2::ONE, 0.0, atlas.get(SprRect(0, 1, 1, 1)));
         Graphics::draw_sprite(Vector2( 1.0, -0.5), Vector2::ONE, 0.0, atlas.get(SprRect(1, 1, 1, 1)));
         
-        // Handle window
-        window.swap_buffers();
-        window.handle_events();
+        window.post_tick();
     }
 }

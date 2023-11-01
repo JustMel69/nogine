@@ -63,6 +63,7 @@ impl SubShader {
 }
 
 
+#[derive(Clone, PartialEq, Eq)]
 struct ShaderCore(gl::types::GLuint);
 impl Drop for ShaderCore {
     fn drop(&mut self) {
@@ -71,7 +72,7 @@ impl Drop for ShaderCore {
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Shader {
     core: Option<Arc<ShaderCore>>
 }

@@ -1,6 +1,6 @@
-use std::{sync::RwLock, f32::consts::PI, ffi::CString};
+use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, graphics::{buffers::{GlBuffer, GlVAO}, verts::set_vertex_attribs}};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}};
 
 use self::{shader::{Shader, SubShader, SubShaderType}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
 
@@ -17,6 +17,7 @@ pub(crate) mod batch;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
+static BATCH_DATA: RwLock<BatchData> = RwLock::new(BatchData::new());
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode {
@@ -93,9 +94,53 @@ impl DefaultShaders {
     pub fn def_ellipse_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_shader.clone() }
 }
 
+struct BatchData {
+    curr_batch: Option<BatchMesh>,
+    ready_batches: Vec<BatchProduct>,
+    render_batches: Vec<BatchProduct>,
+}
+
+impl BatchData {
+    const fn new() -> Self {
+        return Self { curr_batch: None, ready_batches: Vec::new(), render_batches: Vec::new() };
+    }
+
+    fn send(&mut self, state: RefBatchState<'_>, verts: &[f32], tris: &[u32]) {
+        self.check_state(&state);
+
+        if self.curr_batch.is_none() {
+            self.curr_batch = Some(BatchMesh::new(state.into()));
+        }
+
+        self.curr_batch.as_mut().unwrap().push(verts, tris);
+    }
+
+    fn check_state(&mut self, state: &RefBatchState<'_>) {
+        if self.curr_batch.is_none() {
+            return;
+        }
+        
+        if !self.curr_batch.as_ref().unwrap().is_of_state(&state) {
+            self.finalize_batch();
+        }
+    }
+
+    fn finalize_batch(&mut self) {
+        let mut batch: Option<BatchMesh> = None;
+        std::mem::swap(&mut batch, &mut self.curr_batch);
+        
+        let product = batch.unwrap().consume();
+        self.ready_batches.push(product);
+    }
+
+    fn swap_batch_buffers(&mut self) {
+        std::mem::swap(&mut self.ready_batches, &mut self.render_batches);
+        self.ready_batches.clear();
+    }
+}
+
 
 pub struct Graphics {
-    mode: Mode,
     scheduled_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
     
@@ -108,20 +153,21 @@ pub struct Graphics {
     ellipse_shader: Option<Shader>,
     custom_shader: Option<Shader>,
 
-    curr_batch: Option<BatchMesh>,
-    ready_batches: Option<Vec<BatchProduct>>,
-    render_batches: Option<Vec<BatchProduct>>,
+    blending: BlendingMode,
+    uniforms: Vec<(Box<[u8]>, Uniform)>,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { mode: Mode::Unset, scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_shader: None, tex_shader: None, ellipse_shader: None, custom_shader: None };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_shader: None, tex_shader: None, ellipse_shader: None, custom_shader: None, blending: BlendingMode::AlphaMix, uniforms: Vec::new() };
     }
 
     pub(crate) fn init() {
-        let mut writer = GRAPHICS.write().unwrap();
-        writer.default_shaders = DefaultShaders::new();
-
+        {
+            let mut writer = GRAPHICS.write().unwrap();
+            writer.default_shaders = DefaultShaders::new();
+        }
+        
         gl_call!(gl::Enable(gl::BLEND));
         Self::set_blending_mode(BlendingMode::AlphaMix);
     }
@@ -148,22 +194,16 @@ impl Graphics {
     pub fn draw_rect_full(left_down: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
         #[repr(C)]
         struct Vert(Vector2, Color4);
-    
-        Self::change_mode(Mode::Rect);
 
         let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
-        let vert_data = [Vert(tf_mat * Vector2::ZERO, colors[0]), Vert(tf_mat * Vector2::UP, colors[1]), Vert(tf_mat * Vector2::ONE, colors[2]), Vert(tf_mat * Vector2::RIGHT, colors[3])];
-
-        let state = RefBatchState {
-            shader: Self::get_shader(Mode::Rect).unwrap(),
-            uniforms: Self::get_uniforms(),
-            attribs: &[2, 4],
-            textures: &[],
-            blending: Self::get_blending(),
-        };
+        let vert_data = [Vert(&tf_mat * Vector2::ZERO, colors[0]), Vert(&tf_mat * Vector2::UP, colors[1]), Vert(&tf_mat * Vector2::ONE, colors[2]), Vert(&tf_mat * Vector2::RIGHT, colors[3])];
 
         let vert_data = convert_vert_data(&vert_data);
-        Self::draw_rect_internal(vert_data, state);
+
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Rect, &[2, 4], &[]);
+        
+        BATCH_DATA.write().unwrap().send(state, vert_data, &Self::RECT_TRIS);
     }
 
 
@@ -182,10 +222,6 @@ impl Graphics {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
-        Self::change_mode(Mode::Textured);
-
-        tex.enable(0); // main_texture is always 0
-
         let tex_res = tex.dims();
         let ppu = {
             let reader = GRAPHICS.read().unwrap();
@@ -194,27 +230,16 @@ impl Graphics {
         let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale).scale(uvs.size());
 
         let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
-        let vert_data = [Vert(tf_mat * Vector2::ZERO, colors[0], uvs.lu()), Vert(tf_mat * Vector2::UP, colors[1], uvs.ld()), Vert(tf_mat * Vector2::ONE, colors[2], uvs.rd()), Vert(tf_mat * Vector2::RIGHT, colors[3], uvs.ru())];
+        let vert_data = [Vert(&tf_mat * Vector2::ZERO, colors[0], uvs.lu()), Vert(&tf_mat * Vector2::UP, colors[1], uvs.ld()), Vert(&tf_mat * Vector2::ONE, colors[2], uvs.rd()), Vert(&tf_mat * Vector2::RIGHT, colors[3], uvs.ru())];
 
-        let state = RefBatchState {
-            shader: Self::get_shader(Mode::Textured).unwrap(),
-            uniforms: Self::get_uniforms(),
-            attribs: &[2, 4, 2],
-            textures: &[tex],
-            blending: Self::get_blending(),
-        };
-
+        let textures = &[tex];
         let vert_data = convert_vert_data(&vert_data);
-        Self::draw_rect_internal(&vert_data, state);
+        
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Textured, &[2, 4, 2], textures);
+        
+        BATCH_DATA.write().unwrap().send(state, vert_data, &Self::RECT_TRIS);
     }
-    
-    fn draw_rect_internal<T>(vert_data: &[f32], state: RefBatchState) {
-        Self::set_state(state);
-
-        let mut writer = GRAPHICS.write().unwrap();
-        writer.curr_batch.unwrap().push(vert_data, &Self::RECT_TRIS);
-    }
-
 
 
     // |>-<   Ellipse Drawing   >-<| //
@@ -227,100 +252,81 @@ impl Graphics {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
-        Self::change_mode(Mode::Ellipse);
-
-        let mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
-        let vert_data = [Vert(mat * Vector2::ZERO, color, Vector2::UP), Vert(mat * Vector2::UP, color, Vector2::ZERO), Vert(mat * Vector2::ONE, color, Vector2::RIGHT), Vert(mat * Vector2::RIGHT, color, Vector2::ONE)];
-
-        let state = RefBatchState {
-            shader: Self::get_shader(Mode::Ellipse),
-            uniforms: Self::get_uniforms(),
-            attribs: &[2, 4, 2],
-            textures: &[],
-            blending: Self::get_blending(),
-        };
+        let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
+        let vert_data = [Vert(&tf_mat * Vector2::ZERO, color, Vector2::UP), Vert(&tf_mat * Vector2::UP, color, Vector2::ZERO), Vert(&tf_mat * Vector2::ONE, color, Vector2::RIGHT), Vert(&tf_mat * Vector2::RIGHT, color, Vector2::ONE)];
 
         let vert_data = convert_vert_data(&vert_data);
-        Self::draw_rect_internal(vert_data, state);
+
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Ellipse, &[2, 4, 2], &[]);
+        
+        BATCH_DATA.write().unwrap().send(state, vert_data, &Self::RECT_TRIS);
     }
 
 
 
     // |>-<   N-sided polygon   >-<| //
 
-    pub fn draw_polygon(center: Vector2, radius: f32, rot: f32, sides: u16, color: Color4) {
+    pub fn draw_polygon(center: Vector2, radius: f32, rot: f32, sides: u32, color: Color4) {
         Self::draw_polygon_ext(center, Vector2(radius, radius), rot, sides, color);
     }
 
-    pub fn draw_polygon_ext(center: Vector2, half_extents: Vector2, rot: f32, sides: u16, color: Color4) {
+    pub fn draw_polygon_ext(center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {
         assert!(sides >= 3);
 
         #[repr(C)]
         struct Vert(Vector2, Color4);
 
-        Self::change_mode(Mode::Rect);
-
         let delta_theta = (2.0 * PI) / (sides as f32);
         let mut verts = Vec::with_capacity(1 + sides as usize);
 
-        let mat = Matrix3x3::transform_matrix(center, rot, half_extents);
+        let tf_mat = Matrix3x3::transform_matrix(center, rot, half_extents);
 
-        verts.push(Vert(mat * Vector2::ZERO, color));
+        verts.push(Vert(&tf_mat * Vector2::ZERO, color));
         for i in 0..sides {
             let theta = delta_theta * (i as f32);
-            let pos = mat * Vector2::UP.rotate(theta);
+            let pos = &tf_mat * Vector2::UP.rotate(theta);
             verts.push(Vert(pos, color));
         }
-        let mut tris: Vec<u16> = Vec::with_capacity(sides as usize * 3);
+        let mut tris: Vec<u32> = Vec::with_capacity(sides as usize * 3);
         for i in 0..sides {
             let i = i + 1;
             let j = (i % sides) + 1;
             tris.extend_from_slice(&[0, i, j])
         }
         
-        let state = RefBatchState {
-            shader: Self::get_shader(Mode::Rect).unwrap(),
-            uniforms: Self::get_uniforms(),
-            attribs: &[2, 4],
-            textures: &[],
-            blending: Self::get_blending(),
-        };
-
         let vert_data = convert_vert_data(&verts);
 
-        Self::set_state(state);
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Rect, &[2, 4], &[]);
 
-        let mut writer = GRAPHICS.write().unwrap();
-        writer.curr_batch.unwrap().push(vert_data, &Self::RECT_TRIS);        
+        let mut b_writer = BATCH_DATA.write().unwrap();
+        b_writer.send(state, vert_data, &tris);
     }
 
 
 
-    pub fn draw_custom_mesh<T>(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[T], tri_data: &[u16], vert_attribs: &[usize]) {
+    pub fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         assert!(tri_data.len() % 3 == 0);
 
-        Self::change_mode(Mode::Custom);
+        let tf_mat = Matrix3x3::transform_matrix(pos, rot, scale);
 
-        let vao = GlVAO::new();
-        vao.bind();
+        let stride = vert_attribs.iter().sum();
+        let vert_data = vert_data.windows(2).step_by(stride).flat_map(|x| {
+            let res = &tf_mat * Vector2(x[0], x[1]);
+            [res.0, res.1].into_iter()
+        }).collect::<Box<[_]>>();
         
-        let vbo = GlBuffer::new_vbo();
-        vbo.set_data(vert_data);
-        
-        let ebo = GlBuffer::new_ebo();
-        ebo.set_data(tri_data);
-        
-        set_vertex_attribs(vert_attribs);
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Custom, vert_attribs, textures);
 
-        Self::set_tf_mat(Matrix3x3::transform_matrix(pos, rot, scale));
-        vao.bind();
-        gl_call!(gl::DrawElements(gl::TRIANGLES, tri_data.len() as i32, gl::UNSIGNED_SHORT, std::ptr::null()));
+        let mut b_writer = BATCH_DATA.write().unwrap();
+        b_writer.send(state, &vert_data, tri_data);
     }
 
     pub fn set_shader(shader: Option<Shader>, mode: Mode) {
         assert!(!matches!(mode, Mode::Unset));
 
-        Self::change_mode(mode);
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
             Mode::Unset => unreachable!(),
@@ -331,32 +337,20 @@ impl Graphics {
         }
     }
 
-    pub fn set_uniform(name: &str, value: Uniform) {
-        let name = CString::new(name).unwrap();
+    pub fn set_uniform(name: &[u8], value: Uniform) {
+        assert!(name.len() > 0 && name[name.len() - 1] == b'\0', "Uniform names must be zero terminated u8 slices");
         
-        let location = {
-            let reader = GRAPHICS.read().unwrap();
-            let shader = reader.get_current_shader().unwrap();
-            shader.enable();
-            gl_call!(gl::GetUniformLocation(shader.id(), name.as_ptr()))
-        };
-
-        match value {
-            Uniform::Float(x) => gl_call!(gl::Uniform1f(location, x)),
-            Uniform::Float2(x, y) => gl_call!(gl::Uniform2f(location, x, y)),
-            Uniform::Float3(x, y, z) => gl_call!(gl::Uniform3f(location, x, y, z)),
-            Uniform::Float4(x, y, z, w) => gl_call!(gl::Uniform4f(location, x, y, z ,w)),
-            Uniform::Int(x) => gl_call!(gl::Uniform1i(location, x)),
-            Uniform::Uint(x) => gl_call!(gl::Uniform1ui(location, x)),
+        let mut writer = GRAPHICS.write().unwrap();
+        if let Some(i) = writer.uniforms.iter().position(|x| x.0.iter().eq(name.iter())) {
+            writer.uniforms[i].1 = value;
+        } else {
+            writer.uniforms.push((name.into(), value));
         }
     }
 
     pub fn set_blending_mode(mode: BlendingMode) {
-        match mode {
-            BlendingMode::AlphaMix => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA)),
-            BlendingMode::Additive => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE)),
-            BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
-        }
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.blending = mode;
     }
 
     pub fn set_pixels_per_unit(ppu: f32) {
@@ -373,53 +367,59 @@ impl Graphics {
         writer.scheduled_cam_data = CamData { pos, height };
     }
 
-    fn change_mode(mode: Mode) {
-        let mut writer = GRAPHICS.write().unwrap();
-        if writer.mode.matches(&mode) {
-            return;
-        }
-
-        set_vertex_attribs(&[2, 4]);
-        writer.mode = mode;
-        writer.get_current_shader().unwrap().enable();
-    }
-
-    const MVM_NAME: [u8; 4] = [b'm', b'v', b'm', 0];
-    fn set_tf_mat(mat: Matrix3x3) {
+    pub fn get_cam_matrix() -> Matrix3x3 {
         let reader = GRAPHICS.read().unwrap();
-        let shader = match reader.get_current_shader() {
-            Some(x) => x,
-            None => return,
-        };
-
-        let tf_mat_address = gl_call!(gl::GetUniformLocation(shader.id(), Self::MVM_NAME.as_ptr() as *const i8));
-        assert!(tf_mat_address != -1);
-
-        let mvm = &reader.curr_cam_mat * &mat;
-
-        shader.enable(); // must enable for the next gl_call to not fucking scream and die
-        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, mvm.ptr()))
+        return reader.curr_cam_mat.clone();
     }
 
-    fn get_shader(mode: Mode) -> Option<&'static Shader> {
+    fn get_shader(mode: Mode) -> Option<Shader> {
         let reader = GRAPHICS.read().unwrap();
         match mode {
             Mode::Unset => None,
-            Mode::Rect => Some(reader.rect_shader.as_ref().unwrap_or(&reader.default_shaders.def_rect_shader)),
-            Mode::Textured => Some(reader.tex_shader.as_ref().unwrap_or(&reader.default_shaders.def_tex_shader)),
-            Mode::Ellipse => Some(reader.ellipse_shader.as_ref().unwrap_or(&reader.default_shaders.def_ellipse_shader)),
-            Mode::Custom => reader.custom_shader.as_ref(),
+            Mode::Rect => Some(reader.rect_shader.clone().unwrap_or(reader.default_shaders.def_rect_shader.clone())),
+            Mode::Textured => Some(reader.tex_shader.clone().unwrap_or(reader.default_shaders.def_tex_shader.clone())),
+            Mode::Ellipse => Some(reader.ellipse_shader.clone().unwrap_or(reader.default_shaders.def_ellipse_shader.clone())),
+            Mode::Custom => reader.custom_shader.clone(),
         }
     }
 
     pub(crate) fn render() {
         let reader = GRAPHICS.read().unwrap();
-        for b in reader.render_batches.as_ref().unwrap() {
-            b.render();
+        let b_reader = BATCH_DATA.read().unwrap();
+
+        for b in &b_reader.render_batches {
+            b.render(reader.curr_cam_mat.clone());
         }
+
+        println!("Render calls: {}", b_reader.render_batches.len());
+    }
+
+    pub(crate) fn finalize_batch() {
+        let mut b_writer = BATCH_DATA.write().unwrap();
+        b_writer.finalize_batch();
+        b_writer.swap_batch_buffers();
+    }
+
+    fn get_blending(&self) -> BlendingMode {
+        return self.blending;
+    }
+
+    fn get_uniforms(&self) -> &[(Box<[u8]>, Uniform)] {
+        return &self.uniforms
+    }
+
+    fn gen_ref_state<'a>(&'a self, mode: Mode, attribs: &'a [usize], textures: &'a [&'a Texture]) -> RefBatchState<'a> {
+        return RefBatchState {
+            shader: Self::get_shader(mode).unwrap(),
+            uniforms: self.get_uniforms(),
+            attribs,
+            textures,
+            blending: self.get_blending(),
+        };
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BlendingMode {
     AlphaMix,
     Additive,

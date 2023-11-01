@@ -8,6 +8,8 @@ fn main() {
     
     let mut last_frame = Instant::now();
     while window.is_running() {
+        window.pre_tick();
+        
         // Get timestep
         let ts = last_frame.elapsed().as_secs_f32();
         last_frame = Instant::now();
@@ -15,7 +17,7 @@ fn main() {
         window.set_title(&format!("Forced Framerate Example | {} FPS", 1.0 / ts));
         
         // Handle window and force framerate
-        window.handle_events();
+        window.post_tick();
         window.force_framerate(last_frame, 60.0);
     }
 }

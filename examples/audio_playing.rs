@@ -12,7 +12,7 @@ fn main() {
 
     let mut last_frame = Instant::now();
     while window.is_running() {
-        window.handle_events();
+        window.pre_tick();
 
         if Input::key_pressed(KeyInput::E) {
             Audio::play(clip.clone(), 1.0);
@@ -30,6 +30,7 @@ fn main() {
             Audio::stop(&clip);
         }
 
+        window.post_tick();
         window.force_framerate(last_frame, 60.0);
         last_frame = Instant::now();
     }

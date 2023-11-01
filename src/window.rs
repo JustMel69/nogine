@@ -95,7 +95,7 @@ impl Window {
         !self.window.should_close()
     }
 
-    pub fn handle_events(&mut self) {
+    fn handle_events(&mut self) {
         self.glfw.poll_events();
 
         //println!("Singa tu madre");
@@ -107,6 +107,19 @@ impl Window {
             Input::push_input(ev, self.main);
         }
         
+    }
+
+    pub fn pre_tick(&mut self) {
+        self.swap_buffers();
+        Graphics::render();
+        Graphics::tick(self.aspect_ratio());
+    }
+
+    pub fn post_tick(&mut self) {
+        Graphics::finalize_batch();
+        
+        Input::flush();
+        self.handle_events();
     }
 
     #[inline]
@@ -177,7 +190,7 @@ impl Window {
     }
 
     #[inline]
-    pub fn swap_buffers(&mut self) {
+    fn swap_buffers(&mut self) {
         self.window.swap_buffers();
     }
 

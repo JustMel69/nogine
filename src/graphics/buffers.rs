@@ -24,7 +24,7 @@ impl GlBuffer {
         Self { id, kind: gl::ELEMENT_ARRAY_BUFFER }
     }
 
-    pub fn set_data<T>(&self, data: &[T]) {
+    pub fn set_data_from_slice<T>(&self, data: &[T]) {
         self.bind();
         gl_call!(gl::BufferData(self.kind, (std::mem::size_of::<T>() * data.len()) as isize, data.as_ptr() as *const std::ffi::c_void, gl::STATIC_DRAW));
     }

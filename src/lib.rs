@@ -61,3 +61,11 @@ unsafe fn gl_print_err(print_metadata: &str) {
         eprintln!("{print_metadata}\t\t GL_ERROR: {err}");
     }
 }
+
+#[macro_export]
+macro_rules! watch {
+    ($name:literal, $expr:expr) => {
+        println!("{}: {:?}", $name, $expr);
+        loop {};
+    };
+}

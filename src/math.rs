@@ -270,7 +270,7 @@ impl Mul for &Matrix3x3 {
     }
 }
 
-impl Mul<Vector2> for Matrix3x3 {
+impl Mul<Vector2> for &Matrix3x3 {
     type Output = Vector2;
 
     fn mul(self, rhs: Vector2) -> Self::Output {
