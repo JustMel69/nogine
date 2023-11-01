@@ -33,7 +33,7 @@ pub enum TextureFormat {
 }
 
 #[repr(transparent)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct TextureCore(Arc<u32>);
 impl Drop for TextureCore {
     fn drop(&mut self) {
@@ -161,7 +161,7 @@ impl Texture {
         self.dims
     }
 
-    pub fn core(&self) -> &TextureCore {
+    pub(crate) fn core(&self) -> &TextureCore {
         &self.id
     }
 }
