@@ -129,8 +129,10 @@ impl BatchData {
         let mut batch: Option<BatchMesh> = None;
         std::mem::swap(&mut batch, &mut self.curr_batch);
         
-        let product = batch.unwrap().consume();
-        self.ready_batches.push(product);
+        if let Some(x) = batch {
+            let product = x.consume();
+            self.ready_batches.push(product);
+        }
     }
 
     fn swap_batch_buffers(&mut self) {
