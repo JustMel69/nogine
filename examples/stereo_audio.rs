@@ -31,7 +31,7 @@ fn main() {
             Audio::stop(&clip);
         }
 
-        pan = (pan + Input::axis(KeyInput::Left, KeyInput::Right) as f32).clamp(0.0, 1.0);
+        pan = (pan + Input::axis(KeyInput::Left, KeyInput::Right) as f32).clamp(-1.0, 1.0);
 
         window.post_tick(None);
         window.force_framerate(last_frame, 60.0);
