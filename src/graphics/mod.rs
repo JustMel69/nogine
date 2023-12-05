@@ -85,13 +85,28 @@ impl DefaultShaders {
         return Self { def_plain_vert, def_plain_frag, def_uv_vert, def_tex_frag, def_ellipse_frag, def_rect_shader, def_tex_shader, def_ellipse_shader };
     }
 
+    /// Vert subshader with `[xy, rgba]` layout.
     pub fn def_plain_vert() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_plain_vert.clone() }
+
+    /// Frag subshader with `rgba` input. Output color is vertex color.
     pub fn def_plain_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_plain_frag.clone() }
+
+    /// Vert subshader with `[xy, rgba, uv]` layout.
     pub fn def_uv_vert() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_uv_vert.clone() }
+
+    /// Frag subshader with `rgba` and `uv` input. Output color is texture.
     pub fn def_tex_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_tex_frag.clone() }
+
+    /// Frag subshader with `rgba` and `uv` input. Output color is an ellipse.
     pub fn def_ellipse_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_frag.clone() }
+
+    /// Shader for rects. `plain_vert` + `plain_frag`.
     pub fn def_rect_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_rect_shader.clone() }
+
+    /// Shader for textured rects. `uv_vert` + `tex_frag`.
     pub fn def_tex_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_tex_shader.clone() }
+
+    /// Shader for ellipses. `uv_vert` + `ellipse_frag`.
     pub fn def_ellipse_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_shader.clone() }
 }
 
