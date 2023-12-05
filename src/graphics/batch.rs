@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3};
 
 use super::{shader::Shader, uniforms::Uniform, buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode};
@@ -19,22 +21,23 @@ impl<'a> Into<BatchState> for RefBatchState<'a> {
             self.shader.clone(),
             self.uniforms,
             self.attribs.into(),
-            self.textures.iter().map(|x| x.core().clone()).collect(),
+            self.textures.iter().map(|x| x.clone_core()).collect(),
             self.blending
         );
     }
 }
 
+#[derive(Debug)]
 pub struct BatchState {
     shader: Shader,
     uniforms: UniformVec,
     attribs: Box<[usize]>,
-    textures: Box<[TextureCore]>,
+    textures: Box<[Arc<TextureCore>]>,
     blending: BlendingMode,
 }
 
 impl BatchState {
-    fn new<'a>(shader: Shader, uniforms: UniformSlice<'a>, attribs: Box<[usize]>, textures: Box<[TextureCore]>, blending: BlendingMode) -> Self {
+    fn new<'a>(shader: Shader, uniforms: UniformSlice<'a>, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode) -> Self {
         let uniforms = uniforms.into_iter().map(|x| {
             let pos = gl_call!(gl::GetUniformLocation(shader.id(), x.0.as_ptr() as *const i8));
             (pos, x.1)
@@ -64,25 +67,14 @@ impl BatchMesh {
     }
 
     pub fn consume(self) -> BatchProduct {
-        let vao = GlVAO::new();
-        vao.bind();
-        
-        let vbo = GlBuffer::new_vbo();
-        vbo.bind();
-        vbo.set_data_from_slice(self.verts.as_slice());
-
-        let ebo = GlBuffer::new_ebo();
-        ebo.bind();
-        ebo.set_data_from_slice(self.tris.as_slice());
-
-        return BatchProduct { vbo, ebo, vao, trilen: self.tris.len() as i32, state: self.state };
+        return BatchProduct { verts: self.verts, tris: self.tris, state: self.state };
     }
 
-    pub fn is_of_state(&self, state:&RefBatchState) -> bool {
+    pub fn is_of_state(&self, state: &RefBatchState) -> bool {
         return self.state.attribs.iter().eq(state.attribs.iter()) &&
             self.state.blending == state.blending &&
             self.state.shader == state.shader &&
-            self.state.textures.iter().eq(state.textures.iter().map(|x| x.core())) &&
+            self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| x.core())) &&
             self.state.uniforms.iter().cloned().eq(state.uniforms.iter().map(|(x,y)| {
                 let id = gl_call!(gl::GetUniformLocation(state.shader.id(), x.as_ptr() as *const i8));
                 return (id, y.clone());
@@ -93,20 +85,29 @@ impl BatchMesh {
 
 // Is produced in post-tick, rendered in pre-tick
 pub struct BatchProduct {
-    vbo: GlBuffer,
-    ebo: GlBuffer,
-    vao: GlVAO,
-    trilen: i32,
+    verts: Vec<f32>,
+    tris: Vec<u32>,
     state: BatchState,
 }
 
 impl BatchProduct {
     pub fn render(&self, cam: Matrix3x3) {
-        self.state.shader.enable();
+        let vao = GlVAO::new();
+        vao.bind();
 
-        let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.shader.id(), b"mvm\0".as_ptr() as *const i8));
-        assert!(tf_mat_address != -1);
-        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
+        let vbo = GlBuffer::new_vbo();
+        vbo.set_data_from_slice(&self.verts);
+
+        let ebo = GlBuffer::new_ebo();
+        ebo.set_data_from_slice(&self.tris);
+
+        set_vertex_attribs(&self.state.attribs);
+
+        for (i, t) in self.state.textures.iter().enumerate() {
+            t.enable(i as u8);
+        }
+
+        self.state.shader.enable();
 
         for (l, u) in &self.state.uniforms {
             match u {
@@ -119,22 +120,16 @@ impl BatchProduct {
             }
         }
 
+        let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.shader.id(), b"mvm\0".as_ptr() as *const i8));
+        assert!(tf_mat_address != -1);
+        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
+
         match self.state.blending {
             BlendingMode::AlphaMix => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA)),
             BlendingMode::Additive => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE)),
             BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
         }
-        
-        for (i, t) in self.state.textures.iter().enumerate() {
-            t.enable(i as u8);
-        }
 
-        self.vao.bind();
-        self.vbo.bind();
-        self.ebo.bind();
-
-        set_vertex_attribs(&self.state.attribs);
-
-        gl_call!(gl::DrawElements(gl::TRIANGLES, self.trilen, gl::UNSIGNED_INT, std::ptr::null()));
+        gl_call!(gl::DrawElements(gl::TRIANGLES, self.tris.len() as i32, gl::UNSIGNED_INT, std::ptr::null()));
     }
 }
