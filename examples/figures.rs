@@ -1,8 +1,8 @@
-use nogine::{graphics::Graphics, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2};
+use nogine::{graphics::Graphics, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
 
 fn main() {
     // Create Window
-    let mut window = WindowCfg::default().main(true).res((1280, 720)).title("Figures Example").mode(WindowMode::Windowed).init().expect("Couldn't open window");
+    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Figures Example").mode(WindowMode::Windowed).init());
 
     // Setup graphics
     Graphics::set_cam(Vector2::ZERO, 1.5);

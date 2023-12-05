@@ -1,14 +1,14 @@
 use std::time::Instant;
 
-use nogine::{audio::{Audio, clip::AudioClip}, window::WindowCfg, input::{Input, KeyInput}};
+use nogine::{audio::{Audio, clip::AudioClip}, window::WindowCfg, input::{Input, KeyInput}, unwrap_res};
 
 
 const METAL_BAR_AUDIO: &[u8] = include_bytes!("res/metal_bar.wav");
 
 fn main() {
-    let mut window = WindowCfg::default().main(true).title("Audio Playing Example (Press E to play, P to pause, R to resume and S to stop)").init().expect("Couldn't open window");
+    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Audio Playing Example (Press E to play, P to pause, R to resume and S to stop)").init());
     
-    let clip = AudioClip::new(std::io::Cursor::new(METAL_BAR_AUDIO)).unwrap();
+    let clip = unwrap_res!(AudioClip::new(std::io::Cursor::new(METAL_BAR_AUDIO)));
 
     let mut last_frame = Instant::now();
     while window.is_running() {

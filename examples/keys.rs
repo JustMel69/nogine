@@ -1,10 +1,10 @@
 use std::time::Instant;
 
-use nogine::{window::WindowCfg, input::{Input, KeyInput}};
+use nogine::{window::WindowCfg, input::{Input, KeyInput}, unwrap_res};
 
 fn main() {
     // Create Window
-    let mut window = WindowCfg::default().main(true).title("Press keys!").init().expect("Couldn't open window");
+    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Press keys!").init());
     
     let mut press_duration = 0.0;
     let mut last_frame = Instant::now();

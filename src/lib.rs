@@ -9,6 +9,7 @@ pub mod audio;
 pub mod utils {
     pub mod heap;
 }
+pub mod logging;
 
 type Res<T, E> = Result<T, E>;
 

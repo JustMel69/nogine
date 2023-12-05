@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, color::Color4, graphics::{Graphics, RenderStats}, audio::Audio};
+use crate::{Res, input::Input, color::Color4, graphics::{Graphics, RenderStats}, audio::Audio, logging::Logger, log_info};
 
 use super::gl_call;
 
@@ -58,6 +58,8 @@ impl<'a> WindowCfg<'a> {
     }
 
     pub fn init(self) -> Res<Window, WindowError> {
+        Logger::init();
+        
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| WindowError::from(e))?;
         
         let (mut window, events) = glfw.create_window(self.res.0, self.res.1, self.title, self.mode.into()).ok_or(WindowError::CreationFailure)?;
@@ -70,6 +72,7 @@ impl<'a> WindowCfg<'a> {
         Graphics::init();
         Audio::init();
 
+        log_info!("Window initialized.");
         return Ok(Window { window, events, main: self.main, glfw });
     }
 }

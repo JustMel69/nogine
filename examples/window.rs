@@ -1,7 +1,7 @@
-use nogine::window::WindowCfg;
+use nogine::{window::WindowCfg, unwrap_res};
 
 fn main() {
-    let mut window = WindowCfg::default().main(true).title("Hello World!").init().expect("Couldn't open window");
+    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Hello World!").init());
 
     while window.is_running() {
         window.pre_tick(None);

@@ -3,6 +3,8 @@ use std::{io::Cursor, collections::HashMap};
 use rodio::{OutputStream, Sink, OutputStreamHandle, Decoder, SpatialSink};
 use uuid::Uuid;
 
+use crate::{log_info, unwrap_res};
+
 use self::clip::AudioClip;
 
 pub mod clip;
@@ -68,6 +70,8 @@ impl Audio {
     
     pub(crate) fn init() {
         unsafe { AUDIO = Some(Self::new()) };
+        
+        log_info!("Audio initialized.");
     }
 
     /// Plays an audio clip.
@@ -79,9 +83,9 @@ impl Audio {
     pub fn play_ext(clip: AudioClip, volume: f32, panning: Option<f32>) {
         let audio = unsafe { &mut AUDIO.as_mut().unwrap() };
 
-        let decoder = Decoder::new(Cursor::new(clip.data())).unwrap();
+        let decoder = unwrap_res!(Decoder::new(Cursor::new(clip.data())));
         if let Some(panning) = panning {
-            let sink = SpatialSink::try_new(&audio.stream_handle, [panning, 0.0, 0.0], [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]).unwrap();
+            let sink = unwrap_res!(SpatialSink::try_new(&audio.stream_handle, [panning, 0.0, 0.0], [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]));
 
             sink.append(decoder);
             sink.set_speed(volume);
@@ -89,7 +93,7 @@ impl Audio {
     
             audio.clips.insert(clip.uuid(), AudioPlayer::Panned(sink));
         } else {
-            let sink = Sink::try_new(&audio.stream_handle).unwrap();
+            let sink = unwrap_res!(Sink::try_new(&audio.stream_handle));
     
             sink.append(decoder);
             sink.set_speed(volume);

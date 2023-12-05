@@ -1,6 +1,6 @@
 use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info};
 
 use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
 
@@ -188,6 +188,8 @@ impl Graphics {
         
         gl_call!(gl::Enable(gl::BLEND));
         Self::set_blending_mode(BlendingMode::AlphaMix);
+
+        log_info!("Graphics initialized.");
     }
 
     pub(super) fn tick(aspect_ratio: f32) {

@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, shader::{Shader, SubShader, SubShaderType}, DefaultShaders, Mode, uniforms::Uniform}, window::WindowCfg, color::{Color4, Color}, math::Vector2};
+use nogine::{graphics::{Graphics, shader::{Shader, SubShader, SubShaderType}, DefaultShaders, Mode, uniforms::Uniform}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
 
 const CUSTOM_VERT: &str = r#"
 #version 330 core
@@ -19,10 +19,10 @@ void main() {
 
 fn main() {
     // Create Window
-    let mut window = WindowCfg::default().main(true).res((1280, 720)).title("Custom Shader Example").mode(nogine::window::WindowMode::Windowed).init().expect("Couldn't open window");
+    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Custom Shader Example").mode(WindowMode::Windowed).init());
     
     // Create shader
-    let shader = Shader::new(&SubShader::new(&CUSTOM_VERT, SubShaderType::Vert).unwrap(), &DefaultShaders::def_plain_frag()).unwrap();
+    let shader = unwrap_res!(Shader::new(unwrap_res!(&SubShader::new(&CUSTOM_VERT, SubShaderType::Vert)), &DefaultShaders::def_plain_frag()));
 
     // Setup graphics
     Graphics::set_cam(Vector2::ZERO, 1.5);
