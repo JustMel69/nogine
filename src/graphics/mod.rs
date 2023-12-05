@@ -1,6 +1,6 @@
 use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res};
 
 use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
 
@@ -183,7 +183,7 @@ impl Graphics {
     pub(crate) fn init() {
         {
             let mut writer = GRAPHICS.write().unwrap();
-            writer.default_shaders = DefaultShaders::new().unwrap();
+            writer.default_shaders = unwrap_res!(DefaultShaders::new());
         }
         
         gl_call!(gl::Enable(gl::BLEND));
