@@ -67,7 +67,7 @@ pub struct DefaultShaders {
 }
 
 impl DefaultShaders {
-    pub const fn invalid() -> Self {
+    const fn invalid() -> Self {
         return Self { def_plain_vert: SubShader::invalid(), def_plain_frag: SubShader::invalid(), def_uv_vert: SubShader::invalid(), def_tex_frag: SubShader::invalid(), def_ellipse_frag: SubShader::invalid(), def_rect_shader: Shader::invalid(), def_tex_shader: Shader::invalid(), def_ellipse_shader: Shader::invalid() };
     }
 
@@ -157,7 +157,7 @@ impl BatchData {
     }
 }
 
-
+/// Main struct for drawing.
 pub struct Graphics {
     scheduled_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
@@ -190,13 +190,12 @@ impl Graphics {
         Self::set_blending_mode(BlendingMode::AlphaMix);
     }
 
-    pub fn tick(aspect_ratio: f32) {
+    pub(super) fn tick(aspect_ratio: f32) {
         // Update camera matrix
         let mut writer = GRAPHICS.write().unwrap();
         
         let cam_data = &writer.scheduled_cam_data;
         let size = Vector2(cam_data.height * aspect_ratio, cam_data.height);
-        //println!("{size:?}");
         writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
     }
 
@@ -204,11 +203,18 @@ impl Graphics {
 
     // |>-<   Rect Drawing   >-<| //
     
+    /// Draws a non rotated rect.
     pub fn draw_rect(left_down: Vector2, extents: Vector2, color: Color4) {
         Self::draw_rect_full(left_down, extents, 0.0, [color; 4])
     }
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
+
+    /// Draws a rotated rect with control over the color of every vert.<br> 
+    /// - The rect is rotated around the left-down vertice.
+    /// - The order of the colors for the colors array is<br>
+    /// 1 2<br>
+    /// 0 3
     pub fn draw_rect_full(left_down: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
         #[repr(C)]
         struct Vert(Vector2, Color4);
@@ -228,14 +234,26 @@ impl Graphics {
 
     // |>-<   Texture Drawing   >-<| //
 
+    /// Draws a rotated texture.<br>
+    /// - The texture is rotated around the left-down vertice.
+    /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
     pub fn draw_texture(left_down: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
         Self::draw_texture_full(left_down, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
+    /// Draws a rotated sprite.<br>
+    /// - The sprite is rotated around the left-down vertice.
+    /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
     pub fn draw_sprite(left_down: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
         Self::draw_texture_full(left_down, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
     }
 
+    /// Draws a rotated texture with control over the color of each vert and the uv rect utilized.<br>
+    /// - The texture is rotated around the left-down vertice.
+    /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
+    /// - The order of the colors for the colors array is<br>
+    /// 1 2<br>
+    /// 0 3
     pub fn draw_texture_full(left_down: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
@@ -262,10 +280,13 @@ impl Graphics {
 
     // |>-<   Ellipse Drawing   >-<| //
 
+    /// Draws a circle.
     pub fn draw_circle(center: Vector2, radius: f32, color: Color4) {
         Self::draw_ellipse(center, Vector2(radius, radius), 0.0, color);
     }
 
+    /// Draws a rotated ellipse.
+    /// - The ellipse is rotated around the center.
     pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
@@ -285,10 +306,14 @@ impl Graphics {
 
     // |>-<   N-sided polygon   >-<| //
 
+    /// Draws a rotated polygon.
+    /// - The polygon is rotated around the center.
     pub fn draw_polygon(center: Vector2, radius: f32, rot: f32, sides: u32, color: Color4) {
         Self::draw_polygon_ext(center, Vector2(radius, radius), rot, sides, color);
     }
 
+    /// Draws an scaled and rotated polygon.
+    /// - The polygon is rotated around the center.
     pub fn draw_polygon_ext(center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {
         assert!(sides >= 3);
 
@@ -323,8 +348,8 @@ impl Graphics {
     }
 
 
-
-    pub fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
+    /// Draw a custom mesh. Prone to not behaving.
+    pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         assert!(tri_data.len() % 3 == 0);
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, scale);
@@ -342,8 +367,11 @@ impl Graphics {
         b_writer.send(state, &vert_data, tri_data);
     }
 
+    /// Sets a custom shader for a certain rendering mode.<br>
+    /// - If `shader` is `None` the default shader will be restored for the given mode.
+    /// - `mode` cannot be `Unset`
     pub fn set_shader(shader: Option<Shader>, mode: Mode) {
-        assert!(!matches!(mode, Mode::Unset));
+        assert!(!matches!(mode, Mode::Unset), "Mode cannot be unset!");
 
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
@@ -355,6 +383,8 @@ impl Graphics {
         }
     }
 
+    /// Sets the value of a given uniform.<br>
+    /// - `name` must be a zero terminated ascii string. Ex: `b"uniform_name\0"`
     pub fn set_uniform(name: &[u8], value: Uniform) {
         assert!(name.len() > 0 && name[name.len() - 1] == b'\0', "Uniform names must be zero terminated u8 slices");
         
@@ -366,18 +396,24 @@ impl Graphics {
         }
     }
 
+    /// Sets the current blending mode.
     pub fn set_blending_mode(mode: BlendingMode) {
         let mut writer = GRAPHICS.write().unwrap();
         writer.blending = mode;
     }
 
+    /// Sets the current pixels per unit.
+    /// - `ppu` must be positive.
     pub fn set_pixels_per_unit(ppu: f32) {
-        assert!(ppu > 0.0);
+        assert!(ppu > 0.0, "Pixels per unit must be positive!");
 
         let mut writer = GRAPHICS.write().unwrap();
         writer.pixels_per_unit = ppu;
     }
 
+    /// Sets the camera parameters.
+    /// - 'height' must not be zero.
+    /// - Changes will be applied the next frame.
     pub fn set_cam(pos: Vector2, height: f32) {
         assert!(height != 0.0);
 
@@ -385,6 +421,8 @@ impl Graphics {
         writer.scheduled_cam_data = CamData { pos, height };
     }
 
+    /// Returns the camera matrix from the current camera config.
+    /// - This matrix will not change when `set_cam` is called until the next frame.
     pub fn get_cam_matrix() -> Matrix3x3 {
         let reader = GRAPHICS.read().unwrap();
         return reader.curr_cam_mat.clone();
@@ -441,8 +479,11 @@ impl Graphics {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BlendingMode {
+    /// Default blending mode, usual behavior with transparency.
     AlphaMix,
+    /// Color values are added to the background.
     Additive,
+    /// Color values are multiplied with those of the background.
     Multiplicative,
 }
 
@@ -459,6 +500,7 @@ pub struct RenderStats {
 }
 
 impl RenderStats {
+    /// Returns the number of total draw calls in a given frame.
     pub fn draw_calls(&self) -> usize {
         self.draw_calls
     }

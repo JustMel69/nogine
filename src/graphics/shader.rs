@@ -2,9 +2,11 @@ use std::{fmt::Display, ffi::CString, sync::Arc};
 
 use super::super::gl_call;
 
-#[derive(Clone)]
+#[repr(u32)]
+#[derive(Clone, Copy)]
 pub enum SubShaderType {
-    Vert, Frag
+    Vert = gl::VERTEX_SHADER,
+    Frag = gl::FRAGMENT_SHADER,
 }
 
 impl Display for SubShaderType {
@@ -24,6 +26,7 @@ impl Drop for SubShaderCore {
     }
 }
 
+/// An individual component of the shading pipeline.
 #[derive(Clone)]
 pub struct SubShader {
     core: Option<Arc<SubShaderCore>>,
@@ -31,15 +34,13 @@ pub struct SubShader {
 }
 
 impl SubShader {
-    pub const fn invalid() -> Self {
+    pub(super) const fn invalid() -> Self {
         Self { core: None, kind: SubShaderType::Vert }
     }
     
+    /// Compiles the sub shader.
     pub fn new(src: &str, kind: SubShaderType) -> Self {
-        let id = gl_call!(gl::CreateShader(match kind {
-            SubShaderType::Vert => gl::VERTEX_SHADER,
-            SubShaderType::Frag => gl::FRAGMENT_SHADER,
-        }));
+        let id = gl_call!(gl::CreateShader(kind as u32));
 
         let src = CString::new(src).unwrap();
         gl_call!(gl::ShaderSource(id, 1, &src.as_ptr(), std::ptr::null()));
@@ -57,7 +58,7 @@ impl SubShader {
         Self { core: Some(Arc::new(SubShaderCore(id))), kind }
     }
 
-    pub fn id(&self) -> u32 {
+    fn id(&self) -> u32 {
         return self.core.as_ref().unwrap().0;
     }
 }
@@ -72,19 +73,22 @@ impl Drop for ShaderCore {
 }
 
 
+
+/// The main component of the shading pipeline. It defines how geometry must be drawn.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shader {
     core: Option<Arc<ShaderCore>>
 }
 
 impl Shader {
-    pub const fn invalid() -> Self {
+    pub(super) const fn invalid() -> Self {
         Self { core: None }
     }
 
+    /// Creates a shader from two subshaders.
     pub fn new(vert: &SubShader, frag: &SubShader) -> Self {
-        assert!(matches!(vert.kind, SubShaderType::Vert));
-        assert!(matches!(frag.kind, SubShaderType::Frag));
+        assert!(matches!(vert.kind, SubShaderType::Vert), "The vertex shader must actually be a vertex shader.");
+        assert!(matches!(frag.kind, SubShaderType::Frag), "The fragment shader must actually be a fragment shader.");
 
         let id = gl_call!(gl::CreateProgram());
         gl_call!(gl::AttachShader(id, vert.id()));
@@ -103,11 +107,11 @@ impl Shader {
         return Self { core: Some(Arc::new(ShaderCore(id))) };
     }
 
-    pub fn enable(&self) {
+    pub(super) fn enable(&self) {
         gl_call!(gl::UseProgram(self.id()));
     }
 
-    pub fn id(&self) -> u32 {
+    pub(super) fn id(&self) -> u32 {
         self.core.as_ref().unwrap().0
     }
 }

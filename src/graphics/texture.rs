@@ -6,14 +6,17 @@ use crate::math::Rect;
 
 use super::super::gl_call;
 
+/// Defines how a texture is scaled.
 pub enum TextureFiltering {
     Closest, Linear
 }
 
+/// Defines how a texture is sampled when going out of the unit bounds in the uvs.
 pub enum TextureWrapping {
     Clamp, Repeat, Wrap
 }
 
+/// Bundles the config for a texture.
 pub struct TextureCfg {
     pub filtering: TextureFiltering,
     pub wrapping: TextureWrapping,
@@ -52,11 +55,12 @@ impl TextureCore {
 
 pub struct Texture {
     id: Arc<TextureCore>,
-    _colors: Box<[u8]>,
+    //_colors: Box<[u8]>,
     dims: (u32, u32)
 }
 
 impl Texture {
+    /// Loads a texture from a reader.
     pub fn load(src: impl Read + Seek, cfg: TextureCfg) -> Self {
         let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().unwrap();
         let img = decoder.decode().unwrap();
@@ -117,6 +121,7 @@ impl Texture {
         return Self::new(data, fmt, dims, cfg);
     }
 
+    /// Creates a texture from a set of data.
     pub fn new(rgba_colors: Box<[u8]>, fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
         assert!(dims.0 != 0 && dims.1 != 0);
         
@@ -149,13 +154,9 @@ impl Texture {
 
         gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba_colors.as_ptr() as *const std::ffi::c_void));
 
-        return Texture { id: Arc::new(TextureCore(id)), _colors: rgba_colors, dims };
+        return Texture { id: Arc::new(TextureCore(id)), /*_colors: rgba_colors,*/ dims };
     }
 
-
-    pub fn enable(&self, slot: u8) {
-        self.id.enable(slot);
-    }
 
     pub fn dims(&self) -> (u32, u32) {
         self.dims
@@ -170,7 +171,7 @@ impl Texture {
     }
 }
 
-
+/// A fragment of a texture.
 pub struct Sprite<'a>(&'a Texture, Rect);
 
 impl<'a> Sprite<'a> {
@@ -187,6 +188,7 @@ impl<'a> Sprite<'a> {
 #[derive(Clone, Copy)]
 pub struct SprRect(pub u32, pub u32, pub u32, pub u32);
 
+/// A grid aligned texture. Allows to pull sprites.
 pub struct SpriteAtlas {
     internal: Texture,
     sprite_dims: (u32, u32),
