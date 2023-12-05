@@ -152,7 +152,7 @@ impl Into<Vector2> for (f32, f32) {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Matrix3x3 {
     rows: [[f32; 3]; 3],
 }
