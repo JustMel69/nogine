@@ -12,6 +12,8 @@ pub struct Monitor<'a>(&'a glfw::Monitor);
 
 #[derive(Debug, Error)]
 pub enum WindowError {
+    #[error("{0}")]
+    InitError(#[from] glfw::InitError),
     #[error("Couldn't create window")]
     CreationFailure,
 }
@@ -56,7 +58,7 @@ impl<'a> WindowCfg<'a> {
     }
 
     pub fn init(self) -> Res<Window, WindowError> {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| WindowError::from(e))?;
         
         let (mut window, events) = glfw.create_window(self.res.0, self.res.1, self.title, self.mode.into()).ok_or(WindowError::CreationFailure)?;
         window.set_all_polling(true);
@@ -98,7 +100,6 @@ impl Window {
     fn handle_events(&mut self) {
         self.glfw.poll_events();
 
-        //println!("Singa tu madre");
         for (_, ev) in glfw::flush_messages(&self.events) {
             if let glfw::WindowEvent::FramebufferSize(w, h) = ev {
                 gl_call!(gl::Viewport(0, 0, w, h));

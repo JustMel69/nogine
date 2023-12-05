@@ -1,10 +1,21 @@
 use std::{io::{Read, Seek, BufReader}, sync::Arc};
 
-use image::{EncodableLayout, GenericImageView};
+use image::{EncodableLayout, GenericImageView, ImageError};
+use thiserror::Error;
 
-use crate::math::Rect;
+use crate::{math::Rect, Res};
 
 use super::super::gl_call;
+
+#[derive(Debug, Error)]
+pub enum TextureError {
+    #[error("{0}")]
+    IO(#[from] std::io::Error),
+    #[error("{0}")]
+    ImageError(#[from] ImageError),
+    #[error("Unsupported texture format")]
+    UnsupportedFormat,
+}
 
 /// Defines how a texture is scaled.
 pub enum TextureFiltering {
@@ -61,9 +72,9 @@ pub struct Texture {
 
 impl Texture {
     /// Loads a texture from a reader.
-    pub fn load(src: impl Read + Seek, cfg: TextureCfg) -> Self {
-        let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().unwrap();
-        let img = decoder.decode().unwrap();
+    pub fn load(src: impl Read + Seek, cfg: TextureCfg) -> Res<Self, TextureError> {
+        let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().map_err(|e| TextureError::from(e))?;
+        let img = decoder.decode().map_err(|e| TextureError::from(e))?;
         let dims = img.dimensions();
         
         let (data, fmt) = match img {
@@ -115,10 +126,10 @@ impl Texture {
                 }).collect();
                 (data, TextureFormat::RGBA)
             },
-            _ => panic!("Unsupported texture format"),
+            _ => return Err(TextureError::UnsupportedFormat),
         };
 
-        return Self::new(data, fmt, dims, cfg);
+        return Ok(Self::new(data, fmt, dims, cfg));
     }
 
     /// Creates a texture from a set of data.

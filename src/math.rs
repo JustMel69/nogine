@@ -213,7 +213,10 @@ impl Matrix3x3 {
     }
 
     pub fn invert(&mut self) {
-        let inv_det = 1.0 / self.determinant();
+        let det = self.determinant();
+        assert!(det != 0.0, "Matrix is not inversible.");
+
+        let inv_det = 1.0 / det;
         let src = self.rows.clone();
 
         self.rows = [

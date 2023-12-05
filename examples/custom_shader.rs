@@ -22,7 +22,7 @@ fn main() {
     let mut window = WindowCfg::default().main(true).res((1280, 720)).title("Custom Shader Example").mode(nogine::window::WindowMode::Windowed).init().expect("Couldn't open window");
     
     // Create shader
-    let shader = Shader::new(&SubShader::new(&CUSTOM_VERT, SubShaderType::Vert), &DefaultShaders::def_plain_frag());
+    let shader = Shader::new(&SubShader::new(&CUSTOM_VERT, SubShaderType::Vert).unwrap(), &DefaultShaders::def_plain_frag()).unwrap();
 
     // Setup graphics
     Graphics::set_cam(Vector2::ZERO, 1.5);

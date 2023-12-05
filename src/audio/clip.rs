@@ -9,13 +9,13 @@ pub struct AudioClip {
 }
 
 impl AudioClip {
-    pub fn new<R: Read + Seek + Send + Sync + 'static>(mut data: R) -> Self {
+    pub fn new<R: Read + Seek + Send + Sync + 'static>(mut data: R) -> std::io::Result<Self> {
         let mut buf = vec![];
-        data.read_to_end(&mut buf).unwrap();
+        data.read_to_end(&mut buf)?;
 
         let data = buf.into();
         let uuid = Uuid::new_v4();
-        return Self { uuid, data };
+        return Ok(Self { uuid, data });
     }
 
     pub(crate) fn data(&self) -> Arc<[u8]> {

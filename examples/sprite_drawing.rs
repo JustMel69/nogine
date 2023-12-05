@@ -10,7 +10,7 @@ fn main() {
     Graphics::set_cam(Vector2::ZERO, 3.0);
     Graphics::set_pixels_per_unit(16.0);
 
-    let tex = Texture::load(std::io::Cursor::new(ATLAS_TEX), TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() });
+    let tex = Texture::load(std::io::Cursor::new(ATLAS_TEX), TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() }).unwrap();
     let atlas = SpriteAtlas::new(tex, (16, 16));
 
     while window.is_running() {

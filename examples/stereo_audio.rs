@@ -8,7 +8,7 @@ const METAL_BAR_AUDIO: &[u8] = include_bytes!("res/metal_bar.wav");
 fn main() {
     let mut window = WindowCfg::default().main(true).title("Audio Playing Example (Press E to play, P to pause, R to resume and S to stop, Arrows to pan)").init().expect("Couldn't open window");
     
-    let clip = AudioClip::new(std::io::Cursor::new(METAL_BAR_AUDIO));
+    let clip = AudioClip::new(std::io::Cursor::new(METAL_BAR_AUDIO)).unwrap();
 
     let mut pan = 0.0;
     let mut last_frame = Instant::now();

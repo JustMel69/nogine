@@ -10,7 +10,7 @@ fn main() {
     Graphics::set_cam(Vector2::ZERO, 1.5);
     Graphics::set_pixels_per_unit(200.0);
 
-    let tex = Texture::load(std::io::Cursor::new(TIMMY_TEX), Default::default());
+    let tex = Texture::load(std::io::Cursor::new(TIMMY_TEX), Default::default()).unwrap();
 
     while window.is_running() {
         window.pre_tick(None);

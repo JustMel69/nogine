@@ -1,8 +1,8 @@
 use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res};
 
-use self::{shader::{Shader, SubShader, SubShaderType}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
+use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
 
 use self::batch::RefBatchState;
 
@@ -71,18 +71,18 @@ impl DefaultShaders {
         return Self { def_plain_vert: SubShader::invalid(), def_plain_frag: SubShader::invalid(), def_uv_vert: SubShader::invalid(), def_tex_frag: SubShader::invalid(), def_ellipse_frag: SubShader::invalid(), def_rect_shader: Shader::invalid(), def_tex_shader: Shader::invalid(), def_ellipse_shader: Shader::invalid() };
     }
 
-    fn new() -> Self {
-        let def_plain_vert = SubShader::new(&DEF_PLAIN_VERT, SubShaderType::Vert);
-        let def_plain_frag = SubShader::new(&DEF_PLAIN_FRAG, SubShaderType::Frag);
-        let def_uv_vert = SubShader::new(&DEF_UV_VERT, SubShaderType::Vert);
-        let def_tex_frag = SubShader::new(&DEF_TEX_FRAG, SubShaderType::Frag);
-        let def_ellipse_frag = SubShader::new(&DEF_ELLIPSE_FRAG, SubShaderType::Frag);
+    fn new() -> Res<Self, ShaderError> {
+        let def_plain_vert = SubShader::new(&DEF_PLAIN_VERT, SubShaderType::Vert)?;
+        let def_plain_frag = SubShader::new(&DEF_PLAIN_FRAG, SubShaderType::Frag)?;
+        let def_uv_vert = SubShader::new(&DEF_UV_VERT, SubShaderType::Vert)?;
+        let def_tex_frag = SubShader::new(&DEF_TEX_FRAG, SubShaderType::Frag)?;
+        let def_ellipse_frag = SubShader::new(&DEF_ELLIPSE_FRAG, SubShaderType::Frag)?;
         
-        let def_rect_shader = Shader::new(&def_plain_vert, &def_plain_frag);
-        let def_tex_shader = Shader::new(&def_uv_vert, &def_tex_frag);
-        let def_ellipse_shader = Shader::new(&def_uv_vert, &def_ellipse_frag);
+        let def_rect_shader = Shader::new(&def_plain_vert, &def_plain_frag)?;
+        let def_tex_shader = Shader::new(&def_uv_vert, &def_tex_frag)?;
+        let def_ellipse_shader = Shader::new(&def_uv_vert, &def_ellipse_frag)?;
 
-        return Self { def_plain_vert, def_plain_frag, def_uv_vert, def_tex_frag, def_ellipse_frag, def_rect_shader, def_tex_shader, def_ellipse_shader };
+        return Ok(Self { def_plain_vert, def_plain_frag, def_uv_vert, def_tex_frag, def_ellipse_frag, def_rect_shader, def_tex_shader, def_ellipse_shader });
     }
 
     /// Vert subshader with `[xy, rgba]` layout.
@@ -183,7 +183,7 @@ impl Graphics {
     pub(crate) fn init() {
         {
             let mut writer = GRAPHICS.write().unwrap();
-            writer.default_shaders = DefaultShaders::new();
+            writer.default_shaders = DefaultShaders::new().unwrap();
         }
         
         gl_call!(gl::Enable(gl::BLEND));
