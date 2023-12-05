@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, color::{Color4, Color}, graphics::Graphics, audio::Audio};
+use crate::{Res, input::Input, color::Color4, graphics::Graphics, audio::Audio};
 
 use super::gl_call;
 
