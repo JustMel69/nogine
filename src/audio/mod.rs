@@ -53,6 +53,7 @@ impl AudioPlayer {
 }
 
 
+/// Main struct for Audio playing.
 pub struct Audio {
     _stream: OutputStream,
     stream_handle: OutputStreamHandle,
@@ -69,10 +70,12 @@ impl Audio {
         unsafe { AUDIO = Some(Self::new()) };
     }
 
+    /// Plays an audio clip.
     pub fn play(clip: AudioClip, volume: f32) {
         Self::play_ext(clip, volume, None);
     }
 
+    /// Plays an audio clip with a certain panning.
     pub fn play_ext(clip: AudioClip, volume: f32, panning: Option<f32>) {
         let audio = unsafe { &mut AUDIO.as_mut().unwrap() };
 
@@ -97,6 +100,7 @@ impl Audio {
 
     }
 
+    /// Pauses a clip.
     pub fn pause(clip: &AudioClip) {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
@@ -105,6 +109,7 @@ impl Audio {
         };
     }
 
+    /// Resumes a clip.
     pub fn resume(clip: &AudioClip) {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
@@ -113,6 +118,7 @@ impl Audio {
         };
     }
 
+    /// Stops a clip.
     pub fn stop(clip: &AudioClip) {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
@@ -121,6 +127,7 @@ impl Audio {
         };
     }
 
+    /// Checks if a clip is actually playing.
     pub fn is_fully_playing(clip: &AudioClip) -> bool {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
@@ -131,6 +138,7 @@ impl Audio {
         }
     }
 
+    /// Checks if a clip is playing or paused.
     pub fn is_playing_or_paused(clip: &AudioClip) -> bool {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
@@ -141,6 +149,7 @@ impl Audio {
         }
     }
 
+    /// Checks if the clip is paused.
     pub fn is_paused(clip: &AudioClip) -> bool {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
