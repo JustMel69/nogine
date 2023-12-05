@@ -9,7 +9,7 @@ fn main() {
     let mut press_duration = 0.0;
     let mut last_frame = Instant::now();
     while window.is_running() {
-        window.pre_tick();
+        window.pre_tick(None);
         
         let ts = last_frame.elapsed().as_secs_f32();
         last_frame = Instant::now();
@@ -30,6 +30,6 @@ fn main() {
             press_duration += ts;
         }
         
-        window.post_tick();
+        window.post_tick(None);
     }
 }

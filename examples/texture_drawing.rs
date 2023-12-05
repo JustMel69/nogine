@@ -13,12 +13,11 @@ fn main() {
     let tex = Texture::load(std::io::Cursor::new(TIMMY_TEX), Default::default());
 
     while window.is_running() {
-        window.pre_tick();
-        window.clear_screen(Color4::BLACK);
+        window.pre_tick(None);
         
         // Draw Texture
         Graphics::draw_texture(Vector2(-0.5, -0.5), Vector2::ONE, 0.0, &tex);
         
-        window.post_tick();
+        window.post_tick(Some(Color4::BLACK));
     }
 }

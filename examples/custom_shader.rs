@@ -30,11 +30,10 @@ fn main() {
     Graphics::set_uniform(b"blue_value\0", Uniform::Float(0.5));
 
     while window.is_running() {
-        window.pre_tick();
-        window.clear_screen(Color4::BLACK);
+        window.pre_tick(None);
         
         Graphics::draw_rect(Vector2(-0.5, -0.5), Vector2::ONE, Color4::WHITE);
         
-        window.post_tick();
+        window.post_tick(Some(Color4::BLACK));
     }
 }

@@ -7,8 +7,7 @@ fn main() {
     // Setup graphics
     Graphics::set_cam(Vector2::ZERO, 1.5);
     while window.is_running() {
-        window.pre_tick();
-        window.clear_screen(Color4(0.1, 0.2, 0.3, 1.0));
+        window.pre_tick(None);
         
         // Background
         Graphics::draw_rect(Vector2(-2.0, -0.5), Vector2(4.0, 1.0), Color4::GRAY);
@@ -25,6 +24,6 @@ fn main() {
         // Restore AlphaMix once finished
         Graphics::set_blending_mode(BlendingMode::AlphaMix);
 
-        window.post_tick();
+        window.post_tick(Some(Color4(0.1, 0.2, 0.3, 1.0)));
     }
 }
