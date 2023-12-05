@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, color::Color4, graphics::Graphics, audio::Audio};
+use crate::{Res, input::Input, color::{Color4, Color}, graphics::Graphics, audio::Audio};
 
 use super::gl_call;
 
@@ -109,17 +109,21 @@ impl Window {
         
     }
 
-    pub fn pre_tick(&mut self) {
-        self.swap_buffers();
+    pub fn pre_tick(&mut self, _: Option<()>) {
         Graphics::render();
         Graphics::tick(self.aspect_ratio());
     }
-
-    pub fn post_tick(&mut self) {
+    
+    pub fn post_tick(&mut self, clear_col: Option<Color4>) {
         Graphics::finalize_batch();
         
         Input::flush();
         self.handle_events();
+        self.swap_buffers();
+
+        if let Some(col) = clear_col {
+            self.clear_screen(col);
+        }
     }
 
     #[inline]
@@ -194,7 +198,7 @@ impl Window {
         self.window.swap_buffers();
     }
 
-    pub fn clear_screen(&mut self, color: Color4) {
+    fn clear_screen(&mut self, color: Color4) {
         gl_call!(gl::ClearColor(color.0, color.1, color.2, color.3));
         gl_call!(gl::Clear(gl::COLOR_BUFFER_BIT));
         //Graphics::frame_start();
