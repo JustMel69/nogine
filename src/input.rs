@@ -201,27 +201,32 @@ impl Input {
 
     // |>-<·>-<|      Keyboard Input      |>-<·>-<| //
 
+    /// Checks if the key is being pressed.
     pub fn key(key: KeyInput) -> bool {
         let x = Self::key_state(key);
         return x == 0b01 || x == 0b11;
     }
 
+    /// Returns an axis derived from the inputs of two keys.
     pub fn axis(neg: KeyInput, pos: KeyInput) -> i32 {
         let n = if Self::key(neg) { -1 } else { 0 };
         let p = if Self::key(pos) { 1 } else { 0 };
         return n + p;
     }
 
+    /// Checks if the key has started to be pressed this frame.
     pub fn key_pressed(key: KeyInput) -> bool {
         let x = Self::key_state(key);
         return x == 0b01;
     }
 
+    /// Checks if the key has been released this frame.
     pub fn key_released(key: KeyInput) -> bool {
         let x = Self::key_state(key);
         return x == 0b10;
     }
 
+    /// Checks if the key is being held, altough for more than the current frame.
     pub fn key_hold(key: KeyInput) -> bool {
         let x = Self::key_state(key);
         return x == 0b11;
@@ -290,21 +295,25 @@ impl Input {
 
     // |>-<·>-<|      Mouse Input      |>-<·>-<| //
 
+    /// Checks if the button is being pressed.
     pub fn mouse(button: MouseInput) -> bool {
         let x = Self::mouse_state(button);
         return x == 0b01 || x == 0b11;
     }
-
+    
+    /// Checks if the button has started to be pressed this frame.
     pub fn mouse_pressed(button: MouseInput) -> bool {
         let x = Self::mouse_state(button);
         return x == 0b01;
     }
-
+    
+    /// Checks if the button has been released this frame.
     pub fn mouse_released(button: MouseInput) -> bool {
         let x = Self::mouse_state(button);
         return x == 0b10;
     }
-
+    
+    /// Checks if the button is being held, altough for more than the current frame.
     pub fn mouse_hold(button: MouseInput) -> bool {
         let x = Self::mouse_state(button);
         return x == 0b11;
@@ -345,6 +354,7 @@ impl Input {
         return reader.window_in.last().cloned();
     }
 
+    /// Gets the current mouse scroll (some devices have two scroll axis, for regular vertical just use the second axis)
     pub fn get_scroll() -> (f32, f32) {
         let reader = INPUT.read().unwrap();
         return reader.scroll_in;
