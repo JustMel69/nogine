@@ -9,11 +9,12 @@ use self::batch::RefBatchState;
 use super::gl_call;
 
 pub mod shader;
-pub mod buffers;
-pub mod verts;
 pub mod texture;
 pub mod uniforms;
-pub(crate) mod batch;
+
+mod buffers;
+mod verts;
+mod batch;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
