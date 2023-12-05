@@ -385,7 +385,7 @@ impl Graphics {
         }
     }
 
-    pub(crate) fn render() {
+    pub(crate) fn render() -> RenderStats {
         let reader = GRAPHICS.read().unwrap();
         let b_reader = BATCH_DATA.read().unwrap();
 
@@ -393,7 +393,9 @@ impl Graphics {
             b.render(reader.curr_cam_mat.clone());
         }
 
-        println!("Draw calls: {}", b_reader.render_batches.len());
+        return RenderStats {
+            draw_calls: b_reader.render_batches.len(),
+        };
     }
 
     pub(crate) fn finalize_batch() {
@@ -431,4 +433,17 @@ pub enum BlendingMode {
 fn convert_vert_data<T>(src: &[T]) -> &[f32] {
     let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
     return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
+}
+
+
+
+#[derive(Debug)]
+pub struct RenderStats {
+    draw_calls: usize,
+}
+
+impl RenderStats {
+    pub fn draw_calls(&self) -> usize {
+        self.draw_calls
+    }
 }

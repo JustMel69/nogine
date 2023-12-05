@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, color::Color4, graphics::Graphics, audio::Audio};
+use crate::{Res, input::Input, color::Color4, graphics::{Graphics, RenderStats}, audio::Audio};
 
 use super::gl_call;
 
@@ -109,9 +109,10 @@ impl Window {
         
     }
 
-    pub fn pre_tick(&mut self, _: Option<()>) {
-        Graphics::render();
+    pub fn pre_tick(&mut self, _: Option<()>) -> RenderStats {
+        let stats = Graphics::render();
         Graphics::tick(self.aspect_ratio());
+        return stats;
     }
     
     pub fn post_tick(&mut self, clear_col: Option<Color4>) {
