@@ -67,7 +67,16 @@ impl BatchMesh {
     }
 
     pub fn consume(self) -> BatchProduct {
-        return BatchProduct { verts: self.verts, tris: self.tris, state: self.state };
+        let vao = GlVAO::new();
+        vao.bind();
+
+        let vbo = GlBuffer::new_vbo();
+        vbo.set_data_from_slice(&self.verts);
+
+        let ebo = GlBuffer::new_ebo();
+        ebo.set_data_from_slice(&self.tris);
+
+        return BatchProduct { vao, vbo, ebo, trilen: self.tris.len() as i32, state: self.state };
     }
 
     pub fn is_of_state(&self, state: &RefBatchState) -> bool {
@@ -85,21 +94,18 @@ impl BatchMesh {
 
 // Is produced in post-tick, rendered in pre-tick
 pub struct BatchProduct {
-    verts: Vec<f32>,
-    tris: Vec<u32>,
+    vao: GlVAO,
+    vbo: GlBuffer,
+    ebo: GlBuffer,
+    trilen: i32,
     state: BatchState,
 }
 
 impl BatchProduct {
     pub fn render(&self, cam: Matrix3x3) {
-        let vao = GlVAO::new();
-        vao.bind();
-
-        let vbo = GlBuffer::new_vbo();
-        vbo.set_data_from_slice(&self.verts);
-
-        let ebo = GlBuffer::new_ebo();
-        ebo.set_data_from_slice(&self.tris);
+        self.vao.bind();
+        self.vbo.bind();
+        self.ebo.bind();
 
         set_vertex_attribs(&self.state.attribs);
 
@@ -130,6 +136,6 @@ impl BatchProduct {
             BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
         }
 
-        gl_call!(gl::DrawElements(gl::TRIANGLES, self.tris.len() as i32, gl::UNSIGNED_INT, std::ptr::null()));
+        gl_call!(gl::DrawElements(gl::TRIANGLES, self.trilen, gl::UNSIGNED_INT, std::ptr::null()));
     }
 }
