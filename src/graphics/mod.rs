@@ -393,7 +393,7 @@ impl Graphics {
             b.render(reader.curr_cam_mat.clone());
         }
 
-        println!("Render calls: {}", b_reader.render_batches.len());
+        println!("Draw calls: {}", b_reader.render_batches.len());
     }
 
     pub(crate) fn finalize_batch() {
