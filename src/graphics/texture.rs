@@ -33,11 +33,11 @@ pub enum TextureFormat {
 }
 
 #[repr(transparent)]
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) struct TextureCore(Arc<u32>);
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct TextureCore(u32);
 impl Drop for TextureCore {
     fn drop(&mut self) {
-        gl_call!(gl::DeleteTextures(1, self.0.as_ref()))
+        gl_call!(gl::DeleteTextures(1, &self.0))
     }
 }
 
@@ -46,12 +46,12 @@ impl TextureCore {
         assert!(slot < 16);
 
         gl_call!(gl::ActiveTexture(gl::TEXTURE0 + slot as u32));
-        gl_call!(gl::BindTexture(gl::TEXTURE_2D, *self.0));
+        gl_call!(gl::BindTexture(gl::TEXTURE_2D, self.0));
     }
 }
 
 pub struct Texture {
-    id: TextureCore,
+    id: Arc<TextureCore>,
     _colors: Box<[u8]>,
     dims: (u32, u32)
 }
@@ -149,7 +149,7 @@ impl Texture {
 
         gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba_colors.as_ptr() as *const std::ffi::c_void));
 
-        return Texture { id: TextureCore(Arc::new(id)), _colors: rgba_colors, dims };
+        return Texture { id: Arc::new(TextureCore(id)), _colors: rgba_colors, dims };
     }
 
 
@@ -163,6 +163,10 @@ impl Texture {
 
     pub(crate) fn core(&self) -> &TextureCore {
         &self.id
+    }
+
+    pub(crate) fn clone_core(&self) -> Arc<TextureCore> {
+        self.id.clone()
     }
 }
 
