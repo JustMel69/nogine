@@ -102,7 +102,7 @@ pub struct BatchProduct {
 }
 
 impl BatchProduct {
-    pub fn render(&self, cam: Matrix3x3) {
+    pub fn render(&self, cam: &Matrix3x3) {
         self.vao.bind();
         self.vbo.bind();
         self.ebo.bind();
@@ -130,11 +130,7 @@ impl BatchProduct {
         assert!(tf_mat_address != -1);
         gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
 
-        match self.state.blending {
-            BlendingMode::AlphaMix => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA)),
-            BlendingMode::Additive => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE)),
-            BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
-        }
+        self.state.blending.apply();
 
         gl_call!(gl::DrawElements(gl::TRIANGLES, self.trilen, gl::UNSIGNED_INT, std::ptr::null()));
     }

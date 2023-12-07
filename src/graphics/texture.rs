@@ -18,16 +18,21 @@ pub enum TextureError {
 }
 
 /// Defines how a texture is scaled.
+#[repr(u32)]
+#[derive(Clone, Copy)]
 pub enum TextureFiltering {
-    Closest, Linear
+    Closest = gl::NEAREST,
+    Linear = gl::LINEAR
 }
 
 /// Defines how a texture is sampled when going out of the unit bounds in the uvs.
+#[derive(Clone, Copy)]
 pub enum TextureWrapping {
     Clamp, Repeat, Wrap
 }
 
 /// Bundles the config for a texture.
+#[derive(Clone, Copy)]
 pub struct TextureCfg {
     pub filtering: TextureFiltering,
     pub wrapping: TextureWrapping,
@@ -39,6 +44,7 @@ impl Default for TextureCfg {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum TextureFormat {
     R,
     RA,
