@@ -70,6 +70,7 @@ impl TextureCore {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Texture {
     id: Arc<TextureCore>,
     //_colors: Box<[u8]>,
@@ -185,6 +186,12 @@ impl Texture {
 
     pub(crate) fn clone_core(&self) -> Arc<TextureCore> {
         self.id.clone()
+    }
+}
+
+impl PartialEq for Texture {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
