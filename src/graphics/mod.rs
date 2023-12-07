@@ -2,7 +2,7 @@ use std::{sync::RwLock, f32::consts::PI};
 
 use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res};
 
-use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture}, material::Material};
+use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture}, material::Material};
 
 use self::batch::RefBatchState;
 
@@ -226,12 +226,11 @@ pub struct Graphics {
 
     clear_col: Color4,
     blending: BlendingMode,
-    uniforms: Vec<(Box<[u8]>, Uniform)>,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, uniforms: Vec::new(), clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid() };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid() };
     }
 
     pub(crate) fn init() {
@@ -441,23 +440,16 @@ impl Graphics {
         }
     }
 
-    /// Sets the value of a given uniform.<br>
-    /// - `name` must be a zero terminated ascii string. Ex: `b"uniform_name\0"`
-    pub fn set_uniform(name: &[u8], value: Uniform) {
-        assert!(name.len() > 0 && name[name.len() - 1] == b'\0', "Uniform names must be zero terminated u8 slices");
-        
-        let mut writer = GRAPHICS.write().unwrap();
-        if let Some(i) = writer.uniforms.iter().position(|x| x.0.iter().eq(name.iter())) {
-            writer.uniforms[i].1 = value;
-        } else {
-            writer.uniforms.push((name.into(), value));
-        }
-    }
-
     /// Sets the current blending mode.
     pub fn set_blending_mode(mode: BlendingMode) {
         let mut writer = GRAPHICS.write().unwrap();
         writer.blending = mode;
+    }
+
+    /// Returns the current blending mode.
+    pub fn get_blending_mode() -> BlendingMode {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.blending;
     }
 
     /// Sets the current clear color.
