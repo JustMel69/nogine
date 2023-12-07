@@ -9,4 +9,4 @@ layout (binding = 0) uniform sampler2D screen_tex;
 
 void main() {
     o_Col = texture(screen_tex, f_Uv) * vec4(1.0, 1.0, 1.0, f_Alpha);
-}¡
+}
