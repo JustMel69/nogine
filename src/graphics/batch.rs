@@ -2,14 +2,10 @@ use std::sync::Arc;
 
 use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3};
 
-use super::{shader::Shader, uniforms::Uniform, buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode};
-
-pub type UniformSlice<'a> = &'a [(Box<[u8]>, Uniform)];
-pub type UniformVec = Vec<(i32, Uniform)>;
+use super::{buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode, material::Material};
 
 pub struct RefBatchState<'a> {
-    pub shader: Shader,
-    pub uniforms: UniformSlice<'a>,
+    pub material: Material,
     pub attribs: &'a [usize],
     pub textures: &'a [&'a Texture],
     pub blending: BlendingMode,
@@ -18,8 +14,7 @@ pub struct RefBatchState<'a> {
 impl<'a> Into<BatchState> for RefBatchState<'a> {
     fn into(self) -> BatchState {
         return BatchState::new(
-            self.shader.clone(),
-            self.uniforms,
+            self.material,
             self.attribs.into(),
             self.textures.iter().map(|x| x.clone_core()).collect(),
             self.blending
@@ -29,21 +24,15 @@ impl<'a> Into<BatchState> for RefBatchState<'a> {
 
 #[derive(Debug)]
 pub struct BatchState {
-    shader: Shader,
-    uniforms: UniformVec,
+    material: Material,
     attribs: Box<[usize]>,
     textures: Box<[Arc<TextureCore>]>,
     blending: BlendingMode,
 }
 
 impl BatchState {
-    fn new<'a>(shader: Shader, uniforms: UniformSlice<'a>, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode) -> Self {
-        let uniforms = uniforms.into_iter().map(|x| {
-            let pos = gl_call!(gl::GetUniformLocation(shader.id(), x.0.as_ptr() as *const i8));
-            (pos, x.1)
-        }).collect::<Vec<_>>();
-
-        return Self { shader, uniforms, attribs, textures, blending };
+    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode) -> Self {
+        return Self { material, attribs, textures, blending };
     }
 }
 
@@ -82,12 +71,8 @@ impl BatchMesh {
     pub fn is_of_state(&self, state: &RefBatchState) -> bool {
         return self.state.attribs.iter().eq(state.attribs.iter()) &&
             self.state.blending == state.blending &&
-            self.state.shader == state.shader &&
-            self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| x.core())) &&
-            self.state.uniforms.iter().cloned().eq(state.uniforms.iter().map(|(x,y)| {
-                let id = gl_call!(gl::GetUniformLocation(state.shader.id(), x.as_ptr() as *const i8));
-                return (id, y.clone());
-            }));
+            self.state.material == state.material &&
+            self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| x.core()));
     }
 }
 
@@ -113,20 +98,9 @@ impl BatchProduct {
             t.enable(i as u8);
         }
 
-        self.state.shader.enable();
+        self.state.material.enable();
 
-        for (l, u) in &self.state.uniforms {
-            match u {
-                Uniform::Float(x) => gl_call!(gl::Uniform1f(*l, *x)),
-                Uniform::Float2(x, y) => gl_call!(gl::Uniform2f(*l, *x, *y)),
-                Uniform::Float3(x, y, z) => gl_call!(gl::Uniform3f(*l, *x, *y, *z)),
-                Uniform::Float4(x, y, z, w) => gl_call!(gl::Uniform4f(*l, *x, *y, *z ,*w)),
-                Uniform::Int(x) => gl_call!(gl::Uniform1i(*l, *x)),
-                Uniform::Uint(x) => gl_call!(gl::Uniform1ui(*l, *x)),
-            }
-        }
-
-        let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.shader.id(), b"mvm\0".as_ptr() as *const i8));
+        let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.material.shader().id(), b"mvm\0".as_ptr() as *const i8));
         assert!(tf_mat_address != -1);
         gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
 

@@ -2,12 +2,13 @@ use std::{sync::RwLock, f32::consts::PI};
 
 use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res};
 
-use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture}};
+use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture}, material::Material};
 
 use self::batch::RefBatchState;
 
 use super::gl_call;
 
+pub mod material;
 pub mod shader;
 pub mod texture;
 pub mod uniforms;
@@ -129,6 +130,37 @@ impl DefaultShaders {
     pub fn def_blit_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_blit_shader.clone() }
 }
 
+pub struct DefaultMaterials {
+    def_rect_material: Material,
+    def_tex_material: Material,
+    def_ellipse_material: Material,
+    def_blit_material: Material,
+}
+
+impl DefaultMaterials {
+    const fn invalid() -> Self {
+        return Self {
+            def_rect_material: Material::invalid(), def_tex_material: Material::invalid(), def_ellipse_material: Material::invalid(), def_blit_material: Material::invalid()
+        };
+    }
+
+    fn new(default_shaders: &DefaultShaders) -> Self{
+        let def_rect_material = Material::new(&default_shaders.def_rect_shader, &[]);
+        let def_tex_material = Material::new(&default_shaders.def_tex_shader, &[]);
+        let def_ellipse_material = Material::new(&default_shaders.def_ellipse_shader, &[]);
+        let def_blit_material = Material::new(&default_shaders.def_blit_shader, &[]);
+
+        return Self { def_rect_material, def_tex_material, def_ellipse_material, def_blit_material };
+    }
+
+    
+    pub fn def_rect_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_rect_material.clone() }
+    pub fn def_tex_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_tex_material.clone() }
+    pub fn def_ellipse_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_ellipse_material.clone() }
+    pub fn def_blit_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_blit_material.clone() }
+}
+
+
 struct BatchData {
     curr_batch: Option<BatchMesh>,
     ready_batches: Vec<BatchProduct>,
@@ -185,11 +217,12 @@ pub struct Graphics {
     pixels_per_unit: f32,
 
     default_shaders: DefaultShaders,
+    default_materials: DefaultMaterials,
 
-    rect_shader: Option<Shader>,
-    tex_shader: Option<Shader>,
-    ellipse_shader: Option<Shader>,
-    custom_shader: Option<Shader>,
+    rect_material: Option<Material>,
+    tex_material: Option<Material>,
+    ellipse_material: Option<Material>,
+    custom_material: Option<Material>,
 
     clear_col: Color4,
     blending: BlendingMode,
@@ -198,13 +231,14 @@ pub struct Graphics {
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_shader: None, tex_shader: None, ellipse_shader: None, custom_shader: None, blending: BlendingMode::AlphaMix, uniforms: Vec::new(), clear_col: Color4::BLACK, curr_cam_height: 1.0 };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, uniforms: Vec::new(), clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid() };
     }
 
     pub(crate) fn init() {
         {
             let mut writer = GRAPHICS.write().unwrap();
             writer.default_shaders = unwrap_res!(DefaultShaders::new());
+            writer.default_materials = DefaultMaterials::new(&writer.default_shaders);
         }
         
         gl_call!(gl::Enable(gl::BLEND));
@@ -391,19 +425,19 @@ impl Graphics {
         b_writer.send(state, &vert_data, tri_data);
     }
 
-    /// Sets a custom shader for a certain rendering mode.<br>
-    /// - If `shader` is `None` the default shader will be restored for the given mode.
+    /// Sets a custom material for a certain rendering mode.<br>
+    /// - If `material` is `None` the default material will be restored for the given mode.
     /// - `mode` cannot be `Unset`
-    pub fn set_shader(shader: Option<Shader>, mode: Mode) {
+    pub fn set_material(material: Option<Material>, mode: Mode) {
         assert!(!matches!(mode, Mode::Unset), "Mode cannot be unset!");
 
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
             Mode::Unset => unreachable!(),
-            Mode::Rect => writer.rect_shader = shader,
-            Mode::Textured => writer.tex_shader = shader,
-            Mode::Ellipse => writer.ellipse_shader = shader,
-            Mode::Custom => writer.custom_shader = shader,
+            Mode::Rect => writer.rect_material = material,
+            Mode::Textured => writer.tex_material = material,
+            Mode::Ellipse => writer.ellipse_material = material,
+            Mode::Custom => writer.custom_material = material,
         }
     }
 
@@ -470,14 +504,14 @@ impl Graphics {
         return reader.curr_cam_mat.clone();
     }
 
-    fn get_shader(mode: Mode) -> Option<Shader> {
+    fn get_material(mode: Mode) -> Option<Material> {
         let reader = GRAPHICS.read().unwrap();
         match mode {
             Mode::Unset => None,
-            Mode::Rect => Some(reader.rect_shader.clone().unwrap_or(reader.default_shaders.def_rect_shader.clone())),
-            Mode::Textured => Some(reader.tex_shader.clone().unwrap_or(reader.default_shaders.def_tex_shader.clone())),
-            Mode::Ellipse => Some(reader.ellipse_shader.clone().unwrap_or(reader.default_shaders.def_ellipse_shader.clone())),
-            Mode::Custom => reader.custom_shader.clone(),
+            Mode::Rect => Some(reader.rect_material.clone().unwrap_or(reader.default_materials.def_rect_material.clone())),
+            Mode::Textured => Some(reader.tex_material.clone().unwrap_or(reader.default_materials.def_tex_material.clone())),
+            Mode::Ellipse => Some(reader.ellipse_material.clone().unwrap_or(reader.default_materials.def_ellipse_material.clone())),
+            Mode::Custom => reader.custom_material.clone(),
         }
     }
 
@@ -508,14 +542,9 @@ impl Graphics {
         return self.blending;
     }
 
-    fn get_uniforms(&self) -> &[(Box<[u8]>, Uniform)] {
-        return &self.uniforms
-    }
-
     fn gen_ref_state<'a>(&'a self, mode: Mode, attribs: &'a [usize], textures: &'a [&'a Texture]) -> RefBatchState<'a> {
         return RefBatchState {
-            shader: Self::get_shader(mode).unwrap(),
-            uniforms: self.get_uniforms(),
+            material: Self::get_material(mode).unwrap(),
             attribs,
             textures,
             blending: self.get_blending(),

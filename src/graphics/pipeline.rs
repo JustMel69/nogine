@@ -1,6 +1,6 @@
-use crate::{math::Matrix3x3, color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultShaders}};
+use crate::{math::Matrix3x3, color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}};
 
-use super::{gl_call, batch::BatchProduct, RenderStats, shader::Shader, texture::TextureFiltering, BlendingMode};
+use super::{gl_call, batch::BatchProduct, RenderStats, texture::TextureFiltering, BlendingMode, material::Material};
 
 pub struct DefaultRenderPipeline;
 impl RenderPipeline for DefaultRenderPipeline {
@@ -80,17 +80,17 @@ impl RenderTexture {
         
         let mut target_rt = RenderTexture::new(((self.res.0 / factor).max(1), (self.res.1 / factor).max(1)), target_filtering);
         target_rt.clear(Color4::CLEAR);
-        target_rt.render_with_shader(&[&self], &DefaultShaders::def_blit_shader(), BlendingMode::AlphaMix, stats);
+        target_rt.render_with_shader(&[&self], &DefaultMaterials::def_blit_material(), BlendingMode::AlphaMix, stats);
 
         return target_rt;
     }
 
     pub fn combine(&mut self, source: &Self, blending: BlendingMode, stats: &mut RenderStats) {
-        self.render_with_shader(&[source], &DefaultShaders::def_blit_shader(), blending, stats);
+        self.render_with_shader(&[source], &DefaultMaterials::def_blit_material(), blending, stats);
     }
 
     /// None of the sources can be the Screen Render Texture.
-    pub fn render_with_shader(&mut self, sources: &[&Self], shader: &Shader, blending: BlendingMode, stats: &mut RenderStats) {
+    pub fn render_with_shader(&mut self, sources: &[&Self], material: &Material, blending: BlendingMode, stats: &mut RenderStats) {
         assert!(sources.iter().all(|x| x.fbo != 0), "No source can be a Screen Render Texture");
         
         gl_call!(gl::Viewport(0, 0, self.res.0 as i32, self.res.1 as i32));
@@ -101,7 +101,7 @@ impl RenderTexture {
         let vert_data = [-1.0f32, -1.0, 0.0, 0.0, sources[0].alpha, -1.0 , 1.0, 0.0, 1.0, sources[0].alpha, 1.0, 1.0, 1.0, 1.0, sources[0].alpha, 1.0, -1.0, 1.0, 0.0, sources[0].alpha];
         const TRI_DATA: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
-        shader.enable();
+        material.enable();
 
         let vao = GlVAO::new();
         vao.bind();

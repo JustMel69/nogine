@@ -1,7 +1,7 @@
-use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData}, RenderStats, shader::Shader, texture::TextureFiltering, BlendingMode}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
+use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData}, RenderStats, shader::Shader, texture::TextureFiltering, BlendingMode, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
 
 struct CustomPipeline {
-    shader: Shader
+    material: Material
 }
 
 const SHADER_SRC: &str = include_str!("res/invert_blit.frag");
@@ -13,8 +13,8 @@ impl RenderPipeline for CustomPipeline {
         src_rt.clear(scene_data.clear_col());
         src_rt.render_scene(scene_data, stats);
         
-        // Render texture to screen with a custom shader
-        screen_rt.render_with_shader(&[&src_rt], &self.shader, BlendingMode::AlphaMix, stats);
+        // Render texture to screen with a custom material
+        screen_rt.render_with_shader(&[&src_rt], &self.material, BlendingMode::AlphaMix, stats);
     }
 }
 
@@ -27,8 +27,9 @@ fn main() {
     Graphics::set_clear_col(Color4(0.3, 0.2, 0.1, 1.0));
 
     let shader = unwrap_res!(Shader::new_blit(SHADER_SRC));
+    let material = Material::new(&shader, &[]);
 
-    let pipeline = CustomPipeline { shader };
+    let pipeline = CustomPipeline { material };
     
     while window.is_running() {
         window.pre_tick(Some(&pipeline));
