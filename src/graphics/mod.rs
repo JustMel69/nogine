@@ -2,7 +2,7 @@ use std::{sync::RwLock, f32::consts::PI};
 
 use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res};
 
-use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}};
+use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, uniforms::Uniform, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture}};
 
 use self::batch::RefBatchState;
 
@@ -11,6 +11,7 @@ use super::gl_call;
 pub mod shader;
 pub mod texture;
 pub mod uniforms;
+pub mod pipeline;
 
 mod buffers;
 mod verts;
@@ -48,6 +49,9 @@ const DEF_TEX_FRAG: &str = include_str!("../inline/def_tex_shader.frag");
 
 const DEF_ELLIPSE_FRAG: &str = include_str!("../inline/def_ellipse_shader.frag");
 
+const DEF_BLIT_VERT: &str = include_str!("../inline/def_blit_shader.vert");
+const DEF_BLIT_FRAG: &str = include_str!("../inline/def_blit_shader.frag");
+
 const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
 struct CamData {
     pos: Vector2,
@@ -60,15 +64,18 @@ pub struct DefaultShaders {
     def_uv_vert: SubShader,
     def_tex_frag: SubShader,
     def_ellipse_frag: SubShader,
+    def_blit_vert: SubShader,
+    def_blit_frag: SubShader,
 
     def_rect_shader: Shader,
     def_tex_shader: Shader,
     def_ellipse_shader: Shader,
+    def_blit_shader: Shader,
 }
 
 impl DefaultShaders {
     const fn invalid() -> Self {
-        return Self { def_plain_vert: SubShader::invalid(), def_plain_frag: SubShader::invalid(), def_uv_vert: SubShader::invalid(), def_tex_frag: SubShader::invalid(), def_ellipse_frag: SubShader::invalid(), def_rect_shader: Shader::invalid(), def_tex_shader: Shader::invalid(), def_ellipse_shader: Shader::invalid() };
+        return Self { def_plain_vert: SubShader::invalid(), def_plain_frag: SubShader::invalid(), def_uv_vert: SubShader::invalid(), def_tex_frag: SubShader::invalid(), def_ellipse_frag: SubShader::invalid(), def_rect_shader: Shader::invalid(), def_tex_shader: Shader::invalid(), def_ellipse_shader: Shader::invalid(), def_blit_vert: SubShader::invalid(), def_blit_frag: SubShader::invalid(), def_blit_shader: Shader::invalid() };
     }
 
     fn new() -> Res<Self, ShaderError> {
@@ -77,12 +84,15 @@ impl DefaultShaders {
         let def_uv_vert = SubShader::new(&DEF_UV_VERT, SubShaderType::Vert)?;
         let def_tex_frag = SubShader::new(&DEF_TEX_FRAG, SubShaderType::Frag)?;
         let def_ellipse_frag = SubShader::new(&DEF_ELLIPSE_FRAG, SubShaderType::Frag)?;
+        let def_blit_vert = SubShader::new(&DEF_BLIT_VERT, SubShaderType::Vert)?;
+        let def_blit_frag = SubShader::new(&DEF_BLIT_FRAG, SubShaderType::Frag)?;
         
         let def_rect_shader = Shader::new(&def_plain_vert, &def_plain_frag)?;
         let def_tex_shader = Shader::new(&def_uv_vert, &def_tex_frag)?;
         let def_ellipse_shader = Shader::new(&def_uv_vert, &def_ellipse_frag)?;
+        let def_blit_shader = Shader::new(&def_blit_vert, &def_blit_frag)?;
 
-        return Ok(Self { def_plain_vert, def_plain_frag, def_uv_vert, def_tex_frag, def_ellipse_frag, def_rect_shader, def_tex_shader, def_ellipse_shader });
+        return Ok(Self { def_plain_vert, def_plain_frag, def_uv_vert, def_tex_frag, def_ellipse_frag, def_rect_shader, def_tex_shader, def_ellipse_shader, def_blit_vert, def_blit_frag, def_blit_shader });
     }
 
     /// Vert subshader with `[xy, rgba]` layout.
@@ -100,6 +110,12 @@ impl DefaultShaders {
     /// Frag subshader with `rgba` and `uv` input. Output color is an ellipse.
     pub fn def_ellipse_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_frag.clone() }
 
+    /// Vert subshader with `[xy, uv]` layout.
+    pub fn def_blit_vert() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_blit_vert.clone() }
+
+    /// Frag subshader with `uv` input.
+    pub fn def_blit_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_blit_frag.clone() }
+
     /// Shader for rects. `plain_vert` + `plain_frag`.
     pub fn def_rect_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_rect_shader.clone() }
 
@@ -108,6 +124,9 @@ impl DefaultShaders {
 
     /// Shader for ellipses. `uv_vert` + `ellipse_frag`.
     pub fn def_ellipse_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_ellipse_shader.clone() }
+
+    /// Shader for blit. `blit_vert` + `blit_frag`.
+    pub fn def_blit_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_blit_shader.clone() }
 }
 
 struct BatchData {
@@ -160,6 +179,7 @@ impl BatchData {
 /// Main struct for drawing.
 pub struct Graphics {
     scheduled_cam_data: CamData,
+    curr_cam_height: f32,
     curr_cam_mat: Matrix3x3,
     
     pixels_per_unit: f32,
@@ -171,13 +191,14 @@ pub struct Graphics {
     ellipse_shader: Option<Shader>,
     custom_shader: Option<Shader>,
 
+    clear_col: Color4,
     blending: BlendingMode,
     uniforms: Vec<(Box<[u8]>, Uniform)>,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_shader: None, tex_shader: None, ellipse_shader: None, custom_shader: None, blending: BlendingMode::AlphaMix, uniforms: Vec::new() };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_shader: None, tex_shader: None, ellipse_shader: None, custom_shader: None, blending: BlendingMode::AlphaMix, uniforms: Vec::new(), clear_col: Color4::BLACK, curr_cam_height: 1.0 };
     }
 
     pub(crate) fn init() {
@@ -199,6 +220,7 @@ impl Graphics {
         let cam_data = &writer.scheduled_cam_data;
         let size = Vector2(cam_data.height * aspect_ratio, cam_data.height);
         writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
+        writer.curr_cam_height = size.1;
     }
 
 
@@ -404,6 +426,24 @@ impl Graphics {
         writer.blending = mode;
     }
 
+    /// Sets the current clear color.
+    pub fn set_clear_col(col: Color4) {
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.clear_col = col;
+    }
+
+    /// Gets the current clear color.
+    pub fn get_clear_col() -> Color4 {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.clear_col;
+    }
+
+    /// Gets the camera height.
+    pub fn get_cam_height() -> f32 {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.curr_cam_height;
+    }
+
     /// Sets the current pixels per unit.
     /// - `ppu` must be positive.
     pub fn set_pixels_per_unit(ppu: f32) {
@@ -441,17 +481,21 @@ impl Graphics {
         }
     }
 
-    pub(crate) fn render() -> RenderStats {
+    pub(crate) fn render(pipeline: &dyn RenderPipeline, screen_res: (u32, u32)) -> RenderStats {
         let reader = GRAPHICS.read().unwrap();
         let b_reader = BATCH_DATA.read().unwrap();
 
-        for b in &b_reader.render_batches {
-            b.render(reader.curr_cam_mat.clone());
-        }
-
-        return RenderStats {
-            draw_calls: b_reader.render_batches.len(),
+        let render_data = SceneRenderData { products: &b_reader.render_batches, cam_mat: &reader.curr_cam_mat, clear_col: reader.clear_col };
+        let mut screen_rt = RenderTexture::to_screen(screen_res);
+        let mut render_stats = RenderStats {
+            draw_calls: 0,
+            batch_draw_calls: 0,
+            rt_draw_calls: 0,
         };
+
+        pipeline.render(&mut screen_rt, &render_data, &mut render_stats);
+
+        return render_stats;
     }
 
     pub(crate) fn finalize_batch() {
@@ -489,6 +533,17 @@ pub enum BlendingMode {
     Multiplicative,
 }
 
+impl BlendingMode {
+    pub(super) fn apply(&self) {
+        match self {
+            BlendingMode::AlphaMix => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA)),
+            BlendingMode::Additive => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE)),
+            BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
+        }
+    }
+}
+
+
 fn convert_vert_data<T>(src: &[T]) -> &[f32] {
     let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
     return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
@@ -499,11 +554,23 @@ fn convert_vert_data<T>(src: &[T]) -> &[f32] {
 #[derive(Debug)]
 pub struct RenderStats {
     draw_calls: usize,
+    batch_draw_calls: usize,
+    rt_draw_calls: usize,
 }
 
 impl RenderStats {
     /// Returns the number of total draw calls in a given frame.
     pub fn draw_calls(&self) -> usize {
         self.draw_calls
+    }
+
+    /// Returns the number of draw calls performed on geometry batches.
+    pub fn batch_draw_calls(&self) -> usize {
+        self.batch_draw_calls
+    }
+
+    /// Returns the number of draw calls performed on render textures.
+    pub fn rt_draw_calls(&self) -> usize {
+        self.rt_draw_calls
     }
 }

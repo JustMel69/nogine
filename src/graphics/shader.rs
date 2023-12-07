@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::Res;
 
-use super::super::gl_call;
+use super::{super::gl_call, DefaultShaders};
 
 #[derive(Debug, Error)]
 pub enum ShaderError {
@@ -119,6 +119,12 @@ impl Shader {
         }
 
         return Ok(Self { core: Some(Arc::new(ShaderCore(id))) });
+    }
+
+    /// Creates a blit shader from a src.
+    pub fn new_blit(src: &str) -> Res<Self, ShaderError> {
+        let frag = SubShader::new(src, SubShaderType::Frag)?;
+        return Self::new(&DefaultShaders::def_blit_vert(), &frag);
     }
 
     pub(super) fn enable(&self) {

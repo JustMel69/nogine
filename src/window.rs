@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, color::Color4, graphics::{Graphics, RenderStats}, audio::Audio, logging::Logger, log_info};
+use crate::{Res, input::Input, graphics::{Graphics, RenderStats, pipeline::{RenderPipeline, DefaultRenderPipeline}}, audio::Audio, logging::Logger, log_info};
 
 use super::gl_call;
 
@@ -113,22 +113,21 @@ impl Window {
         
     }
 
-    pub fn pre_tick(&mut self, _: Option<()>) -> RenderStats {
-        let stats = Graphics::render();
+    pub fn pre_tick(&mut self, pipeline: Option<&dyn RenderPipeline>) -> RenderStats {
+        let mut def_pipeline = DefaultRenderPipeline;
+        let pipeline = pipeline.unwrap_or(&mut def_pipeline);
+        
+        let stats = Graphics::render(pipeline, self.get_size());
         Graphics::tick(self.aspect_ratio());
         return stats;
     }
     
-    pub fn post_tick(&mut self, clear_col: Option<Color4>) {
+    pub fn post_tick(&mut self) {
         Graphics::finalize_batch();
         
         Input::flush();
         self.handle_events();
         self.swap_buffers();
-
-        if let Some(col) = clear_col {
-            self.clear_screen(col);
-        }
     }
 
     #[inline]
@@ -201,12 +200,6 @@ impl Window {
     #[inline]
     fn swap_buffers(&mut self) {
         self.window.swap_buffers();
-    }
-
-    fn clear_screen(&mut self, color: Color4) {
-        gl_call!(gl::ClearColor(color.0, color.1, color.2, color.3));
-        gl_call!(gl::Clear(gl::COLOR_BUFFER_BIT));
-        //Graphics::frame_start();
     }
 
     pub fn force_framerate(&self, last_frame: Instant, target_framerate: f64) {
