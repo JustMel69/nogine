@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+//use super::texture::Texture;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Uniform {
     Float(f32),
     Float2(f32, f32),
@@ -6,4 +8,5 @@ pub enum Uniform {
     Float4(f32, f32, f32, f32),
     Int(i32),
     Uint(u32),
+    //Texture(Texture),
 }
