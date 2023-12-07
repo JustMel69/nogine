@@ -14,6 +14,14 @@ impl RenderPipeline for CustomPipeline {
 
         // Apply effect
         naive_blur(&src_rt, screen_rt, self.iterations, self.intensity, stats);
+
+        // Non blurred rt
+        let mut clean_rt = RenderTexture::sized_as(&screen_rt, TextureFiltering::Linear);
+        clean_rt.clear(Color4::CLEAR);
+        clean_rt.render_scene(scene_data, ALTERNATIVE_RENDER_TARGET, stats);
+        
+        // Combine
+        screen_rt.combine(&clean_rt, BlendingMode::AlphaMix, stats);
     }
 }
 
@@ -29,9 +37,11 @@ fn naive_blur(source: &RenderTexture, target: &mut RenderTexture, iterations: u3
     }
 }
 
+const ALTERNATIVE_RENDER_TARGET: u8 = 1;
+
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Naive Blur Example").mode(WindowMode::Windowed).init());
+    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Multi Render Target Example").mode(WindowMode::Windowed).init());
 
     // Setup graphics
     Graphics::set_cam(Vector2::ZERO, 1.5);
@@ -46,7 +56,11 @@ fn main() {
         window.pre_tick(Some(&pipeline));
         
         Graphics::draw_rect(Vector2(-1.55, -0.75), Vector2::ONE, Color4::CYAN);
+
+        Graphics::set_render_target(ALTERNATIVE_RENDER_TARGET);
         Graphics::draw_circle(Vector2(0.0, 0.25), 0.5, Color4::YELLOW);
+        Graphics::set_render_target(DEFAULT_RENDER_TARGET);
+
         Graphics::draw_polygon(Vector2(1.0, -0.25), 0.5, 0.0, 5, Color::PINK);
         
         window.post_tick();

@@ -2,11 +2,13 @@ use crate::{math::Matrix3x3, color::Color4, graphics::{buffers::{GlVAO, GlBuffer
 
 use super::{gl_call, batch::BatchProduct, RenderStats, texture::TextureFiltering, BlendingMode, material::Material};
 
+pub const DEFAULT_RENDER_TARGET: u8 = 0;
+
 pub struct DefaultRenderPipeline;
 impl RenderPipeline for DefaultRenderPipeline {
     fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, stats: &mut RenderStats) {
         screen_rt.clear(scene_data.clear_col);
-        screen_rt.render_scene(scene_data, stats);
+        screen_rt.render_scene(scene_data, DEFAULT_RENDER_TARGET, stats);
     }
 }
 
@@ -52,16 +54,18 @@ impl RenderTexture {
         return Self::new(rt.res, filtering);
     }
 
-    pub fn render_scene(&mut self, scene_data: &SceneRenderData, stats: &mut RenderStats) {
+    pub fn render_scene(&mut self, scene_data: &SceneRenderData, target: u8, stats: &mut RenderStats) {
         gl_call!(gl::Viewport(0, 0, self.res.0 as i32, self.res.1 as i32));
         
         RenderTexture::bind(self);
 
-        for b in scene_data.products {
-            b.render(scene_data.cam_mat);
+        if let Some(products) = scene_data.products[target as usize] {
+            for b in products {
+                b.render(scene_data.cam_mat);
+            }
+            stats.draw_calls += products.len();
+            stats.batch_draw_calls += products.len();
         }
-        stats.draw_calls += scene_data.products.len();
-        stats.batch_draw_calls += scene_data.products.len();
 
         RenderTexture::unbind();
     }
@@ -157,7 +161,7 @@ impl Drop for RenderTexture {
 }
 
 pub struct SceneRenderData<'a> {
-    pub(super) products: &'a [BatchProduct],
+    pub(super) products: [Option<&'a [BatchProduct]>; 256],
     pub(super) cam_mat: &'a Matrix3x3,
     pub(super) clear_col: Color4,
 }

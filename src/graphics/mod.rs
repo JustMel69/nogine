@@ -2,7 +2,7 @@ use std::{sync::RwLock, f32::consts::PI};
 
 use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res};
 
-use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture}, material::Material};
+use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture, DEFAULT_RENDER_TARGET}, material::Material};
 
 use self::batch::RefBatchState;
 
@@ -20,7 +20,7 @@ mod batch;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
-static BATCH_DATA: RwLock<BatchData> = RwLock::new(BatchData::new());
+static BATCH_DATA: RwLock<Option<BatchData>> = RwLock::new(None);
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode {
@@ -161,50 +161,79 @@ impl DefaultMaterials {
 }
 
 
-struct BatchData {
+struct TargetBatchData {
     curr_batch: Option<BatchMesh>,
     ready_batches: Vec<BatchProduct>,
     render_batches: Vec<BatchProduct>,
 }
 
-impl BatchData {
+impl TargetBatchData {
     const fn new() -> Self {
-        return Self { curr_batch: None, ready_batches: Vec::new(), render_batches: Vec::new() };
+        return Self { curr_batch: None, ready_batches: Vec::new(), render_batches: Vec::new() }
+    }
+}
+
+struct BatchData {
+    targets: [Option<TargetBatchData>; 256],
+}
+
+impl BatchData {
+    fn new() -> Self {
+        return Self {
+            targets: std::array::from_fn(|_| None),
+        }
     }
 
-    fn send(&mut self, state: RefBatchState<'_>, verts: &[f32], tris: &[u32]) {
-        self.check_state(&state);
+    fn send(&mut self, target_id: u8, state: RefBatchState<'_>, verts: &[f32], tris: &[u32]) {
+        self.check_state(target_id, &state);
 
-        if self.curr_batch.is_none() {
-            self.curr_batch = Some(BatchMesh::new(state.into()));
-        }
-
-        self.curr_batch.as_mut().unwrap().push(verts, tris);
-    }
-
-    fn check_state(&mut self, state: &RefBatchState<'_>) {
-        if self.curr_batch.is_none() {
-            return;
-        }
+        let target = self.realize_target(target_id);
         
-        if !self.curr_batch.as_ref().unwrap().is_of_state(&state) {
-            self.finalize_batch();
+        if target.curr_batch.is_none() {
+            target.curr_batch = Some(BatchMesh::new(state.into()));
+        }
+
+        target.curr_batch.as_mut().unwrap().push(verts, tris);
+
+    }
+
+    fn check_state(&mut self, target_id: u8, state: &RefBatchState<'_>) {
+        if let Some(target) = &mut self.targets[target_id as usize] {
+            if target.curr_batch.is_none() {
+                return;
+            }
+            
+            if !target.curr_batch.as_ref().unwrap().is_of_state(&state) {
+                self.finalize_batch(target_id);
+            }
         }
     }
 
-    fn finalize_batch(&mut self) {
-        let mut batch: Option<BatchMesh> = None;
-        std::mem::swap(&mut batch, &mut self.curr_batch);
-        
-        if let Some(x) = batch {
-            let product = x.consume();
-            self.ready_batches.push(product);
+    fn finalize_batch(&mut self, target_id: u8) {
+        if let Some(target) = &mut self.targets[target_id as usize] {    
+            let mut batch: Option<BatchMesh> = None;
+            std::mem::swap(&mut batch, &mut target.curr_batch);
+            
+            if let Some(x) = batch {
+                let product = x.consume();
+                target.ready_batches.push(product);
+            }
         }
     }
 
-    fn swap_batch_buffers(&mut self) {
-        std::mem::swap(&mut self.ready_batches, &mut self.render_batches);
-        self.ready_batches.clear();
+    fn swap_batch_buffers(&mut self, target_id: u8) {
+        if let Some(target) = &mut self.targets[target_id as usize] {
+            std::mem::swap(&mut target.ready_batches, &mut target.render_batches);
+            target.ready_batches.clear();
+        }
+    }
+
+    fn realize_target(&mut self, target: u8) -> &mut TargetBatchData {
+        if self.targets[target as usize].is_none() {
+            self.targets[target as usize] = Some(TargetBatchData::new());
+        }
+
+        return self.targets[target as usize].as_mut().unwrap();
     }
 }
 
@@ -224,13 +253,14 @@ pub struct Graphics {
     ellipse_material: Option<Material>,
     custom_material: Option<Material>,
 
+    render_target: u8,
     clear_col: Color4,
     blending: BlendingMode,
 }
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid() };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET };
     }
 
     pub(crate) fn init() {
@@ -238,6 +268,11 @@ impl Graphics {
             let mut writer = GRAPHICS.write().unwrap();
             writer.default_shaders = unwrap_res!(DefaultShaders::new());
             writer.default_materials = DefaultMaterials::new(&writer.default_shaders);
+        }
+
+        {
+            let mut writer = BATCH_DATA.write().unwrap();
+            *writer = Some(BatchData::new());
         }
         
         gl_call!(gl::Enable(gl::BLEND));
@@ -283,8 +318,9 @@ impl Graphics {
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Rect, &[2, 4], &[]);
-        
-        BATCH_DATA.write().unwrap().send(state, vert_data, &Self::RECT_TRIS);
+        let target = reader.render_target;
+
+        BATCH_DATA.write().as_mut().unwrap().as_mut().unwrap().send(target, state, vert_data, &Self::RECT_TRIS);
     }
 
 
@@ -330,8 +366,9 @@ impl Graphics {
         
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Textured, &[2, 4, 2], textures);
+        let target = reader.render_target;
         
-        BATCH_DATA.write().unwrap().send(state, vert_data, &Self::RECT_TRIS);
+        BATCH_DATA.write().unwrap().as_mut().unwrap().send(target, state, vert_data, &Self::RECT_TRIS);
     }
 
 
@@ -355,8 +392,9 @@ impl Graphics {
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Ellipse, &[2, 4, 2], &[]);
+        let target = reader.render_target;
         
-        BATCH_DATA.write().unwrap().send(state, vert_data, &Self::RECT_TRIS);
+        BATCH_DATA.write().unwrap().as_mut().unwrap().send(target, state, vert_data, &Self::RECT_TRIS);
     }
 
 
@@ -399,9 +437,14 @@ impl Graphics {
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Rect, &[2, 4], &[]);
+        let target = reader.render_target;
 
-        let mut b_writer = BATCH_DATA.write().unwrap();
-        b_writer.send(state, vert_data, &tris);
+        {
+            let mut b_writer = BATCH_DATA.write();
+            let b_writer = b_writer.as_mut().unwrap().as_mut().unwrap();
+
+            b_writer.send(target, state, vert_data, &tris);
+        }
     }
 
 
@@ -419,9 +462,14 @@ impl Graphics {
         
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Custom, vert_attribs, textures);
+        let target = reader.render_target;
 
-        let mut b_writer = BATCH_DATA.write().unwrap();
-        b_writer.send(state, &vert_data, tri_data);
+        {
+            let mut b_writer = BATCH_DATA.write();
+            let b_writer = b_writer.as_mut().unwrap().as_mut().unwrap();
+
+            b_writer.send(target, state, &vert_data, tri_data);
+        }
     }
 
     /// Sets a custom material for a certain rendering mode.<br>
@@ -450,6 +498,18 @@ impl Graphics {
     pub fn get_blending_mode() -> BlendingMode {
         let reader = GRAPHICS.read().unwrap();
         return reader.blending;
+    }
+
+    /// Sets the current render target.
+    pub fn set_render_target(target: u8) {
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.render_target = target;
+    }
+
+    /// Returns the current render target.
+    pub fn get_render_target() -> u8 {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.render_target;
     }
 
     /// Sets the current clear color.
@@ -509,9 +569,17 @@ impl Graphics {
 
     pub(crate) fn render(pipeline: &dyn RenderPipeline, screen_res: (u32, u32)) -> RenderStats {
         let reader = GRAPHICS.read().unwrap();
-        let b_reader = BATCH_DATA.read().unwrap();
+        let b_reader = BATCH_DATA.read();
+        let b_reader = b_reader.as_ref().unwrap().as_ref().unwrap();
 
-        let render_data = SceneRenderData { products: &b_reader.render_batches, cam_mat: &reader.curr_cam_mat, clear_col: reader.clear_col };
+        let mut products: [_; 256] = std::array::from_fn(|_| None);
+        for i in 0..256 {
+            if let Some(x) = &b_reader.targets[i] {
+                products[i] = Some(x.render_batches.as_slice());
+            }
+        }
+
+        let render_data = SceneRenderData { products, cam_mat: &reader.curr_cam_mat, clear_col: reader.clear_col };
         let mut screen_rt = RenderTexture::to_screen(screen_res);
         let mut render_stats = RenderStats {
             draw_calls: 0,
@@ -525,9 +593,13 @@ impl Graphics {
     }
 
     pub(crate) fn finalize_batch() {
-        let mut b_writer = BATCH_DATA.write().unwrap();
-        b_writer.finalize_batch();
-        b_writer.swap_batch_buffers();
+        let mut b_writer = BATCH_DATA.write();
+        let b_writer = b_writer.as_mut().unwrap().as_mut().unwrap();
+
+        for i in 0..=255 {
+            b_writer.finalize_batch(i);
+            b_writer.swap_batch_buffers(i);
+        }
     }
 
     fn get_blending(&self) -> BlendingMode {

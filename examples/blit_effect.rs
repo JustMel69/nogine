@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData}, RenderStats, shader::Shader, texture::TextureFiltering, BlendingMode, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
+use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, shader::Shader, texture::TextureFiltering, BlendingMode, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
 
 struct CustomPipeline {
     material: Material
@@ -11,7 +11,7 @@ impl RenderPipeline for CustomPipeline {
         // Render scene to texture
         let mut src_rt = RenderTexture::sized_as(&screen_rt, TextureFiltering::Closest);
         src_rt.clear(scene_data.clear_col());
-        src_rt.render_scene(scene_data, stats);
+        src_rt.render_scene(scene_data, DEFAULT_RENDER_TARGET, stats);
         
         // Render texture to screen with a custom material
         screen_rt.render_with_shader(&[&src_rt], &self.material, BlendingMode::AlphaMix, stats);
