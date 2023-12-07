@@ -14,6 +14,6 @@ fn main() {
         Graphics::draw_circle(Vector2::ZERO, 0.5, Color4::YELLOW);
         Graphics::draw_polygon(Vector2(1.0, 0.0), 0.5, 0.0, 6, Color::PINK);
         
-        window.post_tick(Some(Color4::BLACK));
+        window.post_tick();
     }
 }

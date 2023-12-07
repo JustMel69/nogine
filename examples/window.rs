@@ -5,6 +5,6 @@ fn main() {
 
     while window.is_running() {
         window.pre_tick(None);
-        window.post_tick(None);
+        window.post_tick();
     }
 }

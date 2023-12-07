@@ -30,7 +30,7 @@ fn main() {
             Audio::stop(&clip);
         }
 
-        window.post_tick(None);
+        window.post_tick();
         window.force_framerate(last_frame, 60.0);
         last_frame = Instant::now();
     }

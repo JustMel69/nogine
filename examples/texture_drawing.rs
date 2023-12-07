@@ -1,4 +1,4 @@
-use nogine::{window::WindowCfg, math::Vector2, graphics::{Graphics, texture::Texture}, color::{Color4, Color}, unwrap_res};
+use nogine::{window::WindowCfg, math::Vector2, graphics::{Graphics, texture::Texture}, unwrap_res};
 
 const TIMMY_TEX: &[u8] = include_bytes!("res/timmy.png");
 
@@ -18,6 +18,6 @@ fn main() {
         // Draw Texture
         Graphics::draw_texture(Vector2(-0.5, -0.5), Vector2::ONE, 0.0, &tex);
         
-        window.post_tick(Some(Color4::BLACK));
+        window.post_tick();
     }
 }

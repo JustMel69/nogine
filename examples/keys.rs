@@ -30,6 +30,6 @@ fn main() {
             press_duration += ts;
         }
         
-        window.post_tick(None);
+        window.post_tick();
     }
 }

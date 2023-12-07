@@ -17,7 +17,7 @@ fn main() {
         window.set_title(&format!("Forced Framerate Example | {} FPS", 1.0 / ts));
         
         // Handle window and force framerate
-        window.post_tick(None);
+        window.post_tick();
         window.force_framerate(last_frame, 60.0);
     }
 }

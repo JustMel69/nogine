@@ -34,6 +34,6 @@ fn main() {
         
         Graphics::draw_rect(Vector2(-0.5, -0.5), Vector2::ONE, Color4::WHITE);
         
-        window.post_tick(Some(Color4::BLACK));
+        window.post_tick();
     }
 }
