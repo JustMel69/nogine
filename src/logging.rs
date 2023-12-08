@@ -57,6 +57,16 @@ macro_rules! assert_expr {
     };
 }
 
+#[macro_export]
+macro_rules! crash {
+    ($($tt:tt)+) => {
+        {
+            $crate::log_error!($($tt)+);
+            std::process::exit(1);
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum LogType {
     Info, Warn, Error
