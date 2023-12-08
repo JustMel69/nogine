@@ -15,7 +15,7 @@ fn main() {
         window.pre_tick(None);
 
         if Input::key_pressed(KeyInput::E) {
-            Audio::play(clip.clone(), 1.0);
+            Audio::play(&clip, false, 1.0);
         }
 
         if Input::key_pressed(KeyInput::P) {
