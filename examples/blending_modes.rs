@@ -5,12 +5,13 @@ fn main() {
     let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Blending Modes Example").mode(WindowMode::Windowed).init());
 
     // Setup graphics
-    Graphics::set_cam(Vector2::ZERO, 1.5);
     Graphics::set_clear_col(Color4(0.1, 0.2, 0.3, 1.0));
 
     while window.is_running() {
         window.pre_tick(None);
         
+        Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
+
         // Background
         Graphics::draw_rect(Vector2(-2.0, -0.5), Vector2(4.0, 1.0), Color4::GRAY);
 

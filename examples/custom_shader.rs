@@ -26,11 +26,12 @@ fn main() {
     let material = Material::new(&shader, &[(b"blue_value\0", Uniform::Float(0.5))]);
 
     // Setup graphics
-    Graphics::set_cam(Vector2::ZERO, 1.5);
     Graphics::set_material(Some(material), Mode::Rect);
 
     while window.is_running() {
         window.pre_tick(None);
+
+        Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
         
         Graphics::draw_rect(Vector2(-0.5, -0.5), Vector2::ONE, Color4::WHITE);
         

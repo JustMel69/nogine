@@ -7,7 +7,6 @@ fn main() {
     let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Sprite Drawing Example").mode(nogine::window::WindowMode::Windowed).init());
 
     // Setup graphics
-    Graphics::set_cam(Vector2::ZERO, 3.0);
     Graphics::set_pixels_per_unit(16.0);
 
     let tex = unwrap_res!(Texture::load(std::io::Cursor::new(ATLAS_TEX), TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() }));
@@ -15,6 +14,8 @@ fn main() {
 
     while window.is_running() {
         window.pre_tick(None);
+
+        Graphics::set_cam(Vector2::ZERO, Vector2(3.0 * window.aspect_ratio(), 3.0));
         
         // Draw sprites
         Graphics::draw_sprite(Vector2(-2.0, -0.5), Vector2::ONE, 0.0, atlas.get(SprRect(0, 0, 1, 1)));
