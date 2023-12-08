@@ -2,14 +2,11 @@
 ## Graphics
 - Primitive rendering
 - Texture rendering
-- Custom Materials
-- Alpha and Blending modes
-- Customizable Render Pipeline
+- Custom materials
+- Alpha and blending modes
+- Customizable render pipeline
 
 ## Audio
 - Mono audio
 - Stereo audio
-
-# TODO
-## Audio
 - Audio channels
