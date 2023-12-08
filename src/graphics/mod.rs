@@ -1,6 +1,6 @@
 use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res, window::Window};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res, window::Window, assert_expr};
 
 use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture, DEFAULT_RENDER_TARGET}, material::Material};
 
@@ -411,7 +411,7 @@ impl Graphics {
     /// Draws an scaled and rotated polygon.
     /// - The polygon is rotated around the center.
     pub fn draw_polygon_ext(center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {
-        assert!(sides >= 3);
+        assert_expr!(sides >= 3, "Every polygon must have at least 3 sides.");
 
         #[repr(C)]
         struct Vert(Vector2, Color4);
@@ -451,7 +451,7 @@ impl Graphics {
 
     /// Draw a custom mesh. Prone to not behaving.
     pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
-        assert!(tri_data.len() % 3 == 0);
+        assert_expr!(tri_data.len() % 3 == 0, "The number of indices must be a multiple of 3.");
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, scale);
 
@@ -477,7 +477,7 @@ impl Graphics {
     /// - If `material` is `None` the default material will be restored for the given mode.
     /// - `mode` cannot be `Unset`
     pub fn set_material(material: Option<Material>, mode: Mode) {
-        assert!(!matches!(mode, Mode::Unset), "Mode cannot be unset!");
+        assert_expr!(!matches!(mode, Mode::Unset), "Mode cannot be unset!");
 
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
@@ -534,7 +534,7 @@ impl Graphics {
     /// Sets the current pixels per unit.
     /// - `ppu` must be positive.
     pub fn set_pixels_per_unit(ppu: f32) {
-        assert!(ppu > 0.0, "Pixels per unit must be positive!");
+        assert_expr!(ppu > 0.0, "Pixels per unit must be positive!");
 
         let mut writer = GRAPHICS.write().unwrap();
         writer.pixels_per_unit = ppu;
@@ -544,7 +544,7 @@ impl Graphics {
     /// - 'size' must not have any axis be zero.
     /// - Changes will be applied the next frame.
     pub fn set_cam(pos: Vector2, size: Vector2) {
-        assert!(size.0 != 0.0 && size.1 != 0.0);
+        assert_expr!(size.0 != 0.0 && size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
 
         let mut writer = GRAPHICS.write().unwrap();
         writer.scheduled_cam_data = CamData { pos, size };

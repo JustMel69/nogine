@@ -1,4 +1,4 @@
-use crate::{math::Matrix3x3, color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}};
+use crate::{math::Matrix3x3, color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}, assert_expr};
 
 use super::{gl_call, batch::BatchProduct, RenderStats, texture::TextureFiltering, BlendingMode, material::Material};
 
@@ -30,7 +30,7 @@ impl RenderTexture {
     }
 
     pub fn new(res: (u32, u32), filtering: TextureFiltering) -> Self {
-        assert!(res.0 != 0 && res.1 != 0, "None of the resolution axis can be 0");
+        assert_expr!(res.0 != 0 && res.1 != 0, "None of the resolution axis can be 0");
         
         let mut fbo = 0;
         gl_call!(gl::GenFramebuffers(1, &mut fbo));
@@ -80,7 +80,7 @@ impl RenderTexture {
     }
 
     pub fn downscaled(&self, factor: u32, target_filtering: TextureFiltering, stats: &mut RenderStats) -> Self {
-        assert!(factor != 0, "Scaling factor cannot be 0");
+        assert_expr!(factor != 0, "Scaling factor cannot be 0");
         
         let mut target_rt = RenderTexture::new(((self.res.0 / factor).max(1), (self.res.1 / factor).max(1)), target_filtering);
         target_rt.clear(Color4::CLEAR);
@@ -103,7 +103,7 @@ impl RenderTexture {
     }
 
     pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: (i32, i32, u32, u32), stats: &mut RenderStats) {
-        assert!(source.fbo != 0, "No source can be a Screen Render Texture");
+        assert_expr!(source.fbo != 0, "No source can be a Screen Render Texture");
         
         gl_call!(gl::Viewport(rect.0, rect.1, rect.2 as i32, rect.3 as i32));
 

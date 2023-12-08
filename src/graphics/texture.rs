@@ -3,7 +3,7 @@ use std::{io::{Read, Seek, BufReader}, sync::Arc};
 use image::{EncodableLayout, GenericImageView, ImageError};
 use thiserror::Error;
 
-use crate::{math::Rect, Res};
+use crate::{math::Rect, Res, assert_expr};
 
 use super::super::gl_call;
 
@@ -63,7 +63,7 @@ impl Drop for TextureCore {
 
 impl TextureCore {
     pub fn enable(&self, slot: u8) {
-        assert!(slot < 16);
+        assert_expr!(slot < 16, "Opengl cannot ensure more than 16 texture slots at the same time.");
 
         gl_call!(gl::ActiveTexture(gl::TEXTURE0 + slot as u32));
         gl_call!(gl::BindTexture(gl::TEXTURE_2D, self.0));
@@ -141,7 +141,7 @@ impl Texture {
 
     /// Creates a texture from a set of data.
     pub fn new(rgba_colors: Box<[u8]>, fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
-        assert!(dims.0 != 0 && dims.1 != 0);
+        assert_expr!(dims.0 != 0 && dims.1 != 0, "None of the axis of the resolution can have 0 as a value.");
         
         let mut id = 0;
         gl_call!(gl::GenTextures(1, &mut id));

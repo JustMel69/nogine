@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3};
+use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3, assert_expr};
 
 use super::{buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode, material::Material};
 
@@ -101,7 +101,7 @@ impl BatchProduct {
         self.state.material.enable();
 
         let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.material.shader().id(), b"mvm\0".as_ptr() as *const i8));
-        assert!(tf_mat_address != -1);
+        assert_expr!(tf_mat_address != -1, "Can't find 'mvm' uniform in shader.");
         gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
 
         self.state.blending.apply();

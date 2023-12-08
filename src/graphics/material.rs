@@ -1,4 +1,4 @@
-use crate::log_warn;
+use crate::{log_warn, assert_expr};
 
 use super::{shader::Shader, uniforms::Uniform, gl_call};
 
@@ -15,7 +15,7 @@ impl Material {
     
     pub fn new(shader: &Shader, uniforms: &[(&[u8], Uniform)]) -> Self {
         let uniforms = uniforms.iter().filter_map(|(k, v)| {
-            assert!(k.len() != 0 && k[k.len() - 1] == b'\0', "All uniform names must be zero terminated u8 slices");
+            assert_expr!(k.len() != 0 && k[k.len() - 1] == b'\0', "All uniform names must be zero terminated u8 slices");
             let id = gl_call!(gl::GetUniformLocation(shader.id(), k.as_ptr() as *const i8));
             if id == -1 {
                 log_warn!("Uniform '{}' was not present for the provided shader. Value will be skipped", std::str::from_utf8(k).unwrap());
@@ -40,7 +40,7 @@ impl Material {
     }
 
     pub fn set_uniform(&mut self, address: i32, value: Uniform) {
-        assert!(address >= 0, "Address must be postive.");
+        assert_expr!(address >= 0, "Address must be postive.");
 
         match self.uniforms.iter().position(|x| x.0 == address) {
             Some(i) => {
@@ -53,7 +53,7 @@ impl Material {
     }
 
     pub fn get_uniform_address(&self, name: &[u8]) -> Option<i32> {
-        assert!(name.len() != 0 && name[name.len() - 1] == b'\0', "All uniform names must be zero terminated u8 slices");
+        assert_expr!(name.len() != 0 && name[name.len() - 1] == b'\0', "All uniform names must be zero terminated u8 slices");
         let id = gl_call!(gl::GetUniformLocation(self.shader.id(), name.as_ptr() as *const i8));
 
         if id == -1 {

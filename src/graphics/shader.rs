@@ -2,7 +2,7 @@ use std::{fmt::Display, ffi::{CString, NulError}, sync::Arc};
 
 use thiserror::Error;
 
-use crate::Res;
+use crate::{Res, assert_expr};
 
 use super::{super::gl_call, DefaultShaders};
 
@@ -101,8 +101,8 @@ impl Shader {
 
     /// Creates a shader from two subshaders.
     pub fn new(vert: &SubShader, frag: &SubShader) -> Res<Self, ShaderError> {
-        assert!(matches!(vert.kind, SubShaderType::Vert), "The vertex shader must actually be a vertex shader.");
-        assert!(matches!(frag.kind, SubShaderType::Frag), "The fragment shader must actually be a fragment shader.");
+        assert_expr!(matches!(vert.kind, SubShaderType::Vert), "The vertex shader must be a vertex shader.");
+        assert_expr!(matches!(frag.kind, SubShaderType::Frag), "The fragment shader must be a fragment shader.");
 
         let id = gl_call!(gl::CreateProgram());
         gl_call!(gl::AttachShader(id, vert.id()));

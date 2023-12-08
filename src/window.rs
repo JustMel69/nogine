@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, graphics::{Graphics, RenderStats, pipeline::{RenderPipeline, DefaultRenderPipeline}}, audio::Audio, logging::Logger, log_info};
+use crate::{Res, input::Input, graphics::{Graphics, RenderStats, pipeline::{RenderPipeline, DefaultRenderPipeline}}, audio::Audio, logging::Logger, log_info, assert_expr};
 
 use super::gl_call;
 
@@ -199,7 +199,7 @@ impl Window {
     }
 
     pub fn force_framerate(&self, last_frame: Instant, target_framerate: f64) {
-        assert!(target_framerate > 0.0);
+        assert_expr!(target_framerate > 0.0, "Target framerate must be greater than 0");
         
         let target_ts = 1.0 / target_framerate;
 

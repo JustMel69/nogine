@@ -1,5 +1,7 @@
 use std::ops::{Add, Neg, Sub, Mul, Div, AddAssign};
 
+use crate::assert_expr;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Vector2(pub f32, pub f32);
 
@@ -214,7 +216,7 @@ impl Matrix3x3 {
 
     pub fn invert(&mut self) {
         let det = self.determinant();
-        assert!(det != 0.0, "Matrix is not inversible.");
+        assert_expr!(det != 0.0, "Matrix is not inversible.");
 
         let inv_det = 1.0 / det;
         let src = self.rows.clone();

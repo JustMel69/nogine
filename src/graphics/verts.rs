@@ -1,10 +1,12 @@
+use crate::assert_expr;
+
 use super::super::gl_call;
 
 
 const F32_SIZE: usize = std::mem::size_of::<f32>();
 pub fn set_vertex_attribs(counts: &[usize]) {
     let stride: i32 = (counts.iter().sum::<usize>() * F32_SIZE) as i32;
-    assert!(stride != 0);
+    assert_expr!(stride != 0, "Stride must be greater than 0");
 
     let mut offset: i32 = 0;
 

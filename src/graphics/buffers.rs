@@ -1,5 +1,7 @@
 use gl::types as gltyp;
 
+use crate::assert_expr;
+
 use super::super::gl_call;
 
 pub struct GlBuffer {
@@ -11,7 +13,7 @@ impl GlBuffer {
     pub fn new_vbo() -> Self {
         let mut id = 0;
         gl_call!(gl::GenBuffers(1, &mut id));
-        assert!(id != 0, "Invalid buffer");
+        assert_expr!(id != 0, "Invalid buffer");
 
         Self { id, kind: gl::ARRAY_BUFFER }
     }
@@ -19,7 +21,7 @@ impl GlBuffer {
     pub fn new_ebo() -> Self {
         let mut id = 0;
         gl_call!(gl::GenBuffers(1, &mut id));
-        assert!(id != 0, "Invalid buffer");
+        assert_expr!(id != 0, "Invalid buffer");
 
         Self { id, kind: gl::ELEMENT_ARRAY_BUFFER }
     }
