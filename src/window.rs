@@ -65,7 +65,7 @@ impl<'a> WindowCfg<'a> {
         let (mut window, events) = glfw.create_window(self.res.0, self.res.1, self.title, self.mode.into()).ok_or(WindowError::CreationFailure)?;
         window.set_all_polling(true);
         window.make_current();
-        
+
         gl::load_with(|x| window.get_proc_address(x) as *const _);
         gl_call!(gl::Viewport(0, 0, self.res.0 as i32, self.res.1 as i32));
         
@@ -104,10 +104,6 @@ impl Window {
         self.glfw.poll_events();
 
         for (_, ev) in glfw::flush_messages(&self.events) {
-            if let glfw::WindowEvent::FramebufferSize(w, h) = ev {
-                gl_call!(gl::Viewport(0, 0, w, h));
-            }
-            
             Input::push_input(ev, self.main);
         }
         
@@ -117,17 +113,17 @@ impl Window {
         let mut def_pipeline = DefaultRenderPipeline;
         let pipeline = pipeline.unwrap_or(&mut def_pipeline);
         
-        let stats = Graphics::render(pipeline, self.get_size());
-        Graphics::tick(self.aspect_ratio());
+        let stats = Graphics::render(pipeline, self.get_size(), self);
+        
+        Graphics::tick();
         return stats;
     }
     
     pub fn post_tick(&mut self) {
         Graphics::finalize_batch();
-        
+
         Input::flush();
         self.handle_events();
-        self.swap_buffers();
     }
 
     #[inline]
@@ -198,7 +194,7 @@ impl Window {
     }
 
     #[inline]
-    fn swap_buffers(&mut self) {
+    pub(crate) fn swap_buffers(&mut self) {
         self.window.swap_buffers();
     }
 

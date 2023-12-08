@@ -84,25 +84,33 @@ impl RenderTexture {
         
         let mut target_rt = RenderTexture::new(((self.res.0 / factor).max(1), (self.res.1 / factor).max(1)), target_filtering);
         target_rt.clear(Color4::CLEAR);
-        target_rt.render_with_shader(&[&self], &DefaultMaterials::def_blit_material(), BlendingMode::AlphaMix, stats);
+        target_rt.render_with_shader(&self, &DefaultMaterials::def_blit_material(), BlendingMode::AlphaMix, stats);
 
         return target_rt;
     }
 
     pub fn combine(&mut self, source: &Self, blending: BlendingMode, stats: &mut RenderStats) {
-        self.render_with_shader(&[source], &DefaultMaterials::def_blit_material(), blending, stats);
+        self.render_with_shader(source, &DefaultMaterials::def_blit_material(), blending, stats);
     }
 
-    /// None of the sources can be the Screen Render Texture.
-    pub fn render_with_shader(&mut self, sources: &[&Self], material: &Material, blending: BlendingMode, stats: &mut RenderStats) {
-        assert!(sources.iter().all(|x| x.fbo != 0), "No source can be a Screen Render Texture");
+    pub fn combine_ext(&mut self, source: &Self, blending: BlendingMode, rect: (i32, i32, u32, u32), stats: &mut RenderStats) {
+        self.render_with_shader_ext(source, &DefaultMaterials::def_blit_material(), blending, rect, stats);
+    }
+
+    /// Soure cannot be the Screen Render Texture.
+    pub fn render_with_shader(&mut self, source: &Self, material: &Material, blending: BlendingMode, stats: &mut RenderStats) {
+        self.render_with_shader_ext(source, material, blending, (0, 0, self.res.0, self.res.1), stats);
+    }
+
+    pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: (i32, i32, u32, u32), stats: &mut RenderStats) {
+        assert!(source.fbo != 0, "No source can be a Screen Render Texture");
         
-        gl_call!(gl::Viewport(0, 0, self.res.0 as i32, self.res.1 as i32));
+        gl_call!(gl::Viewport(rect.0, rect.1, rect.2 as i32, rect.3 as i32));
 
         blending.apply();
         RenderTexture::bind(self);
 
-        let vert_data = [-1.0f32, -1.0, 0.0, 0.0, sources[0].alpha, -1.0 , 1.0, 0.0, 1.0, sources[0].alpha, 1.0, 1.0, 1.0, 1.0, sources[0].alpha, 1.0, -1.0, 1.0, 0.0, sources[0].alpha];
+        let vert_data = [-1.0, -1.0, 0.0, 0.0, source.alpha, -1.0, 1.0, 0.0, 1.0, source.alpha, 1.0, 1.0, 1.0, 1.0, source.alpha, 1.0, -1.0, 1.0, 0.0, source.alpha];
         const TRI_DATA: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
         material.enable();
@@ -117,10 +125,7 @@ impl RenderTexture {
         ebo.set_data_from_slice(&TRI_DATA);
 
         verts::set_vertex_attribs(&[2, 2, 1]);
-
-        for (i, &x) in sources.iter().enumerate() {
-            x.use_texture(i as u32);
-        }
+        source.use_texture(0);
 
         gl_call!(gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null()));
         stats.rt_draw_calls += 1;
@@ -145,6 +150,10 @@ impl RenderTexture {
 
     pub fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
+    }
+
+    pub fn res(&self) -> (u32, u32) {
+        self.res
     }
 }
 

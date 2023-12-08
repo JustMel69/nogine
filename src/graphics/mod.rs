@@ -1,6 +1,6 @@
 use std::{sync::RwLock, f32::consts::PI};
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res};
+use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res, window::Window};
 
 use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture, DEFAULT_RENDER_TARGET}, material::Material};
 
@@ -13,6 +13,7 @@ pub mod shader;
 pub mod texture;
 pub mod uniforms;
 pub mod pipeline;
+pub mod gfx;
 
 mod buffers;
 mod verts;
@@ -53,10 +54,10 @@ const DEF_ELLIPSE_FRAG: &str = include_str!("../inline/def_ellipse_shader.frag")
 const DEF_BLIT_VERT: &str = include_str!("../inline/def_blit_shader.vert");
 const DEF_BLIT_FRAG: &str = include_str!("../inline/def_blit_shader.frag");
 
-const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, height: 1.0 };
+const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, size: Vector2::ONE };
 struct CamData {
     pos: Vector2,
-    height: f32,
+    size: Vector2,
 }
 
 pub struct DefaultShaders {
@@ -281,12 +282,12 @@ impl Graphics {
         log_info!("Graphics initialized.");
     }
 
-    pub(super) fn tick(aspect_ratio: f32) {
+    pub(super) fn tick() {
         // Update camera matrix
         let mut writer = GRAPHICS.write().unwrap();
         
         let cam_data = &writer.scheduled_cam_data;
-        let size = Vector2(cam_data.height * aspect_ratio, cam_data.height);
+        let size = Vector2(cam_data.size.0, cam_data.size.1);
         writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
         writer.curr_cam_height = size.1;
     }
@@ -540,13 +541,13 @@ impl Graphics {
     }
 
     /// Sets the camera parameters.
-    /// - 'height' must not be zero.
+    /// - 'size' must not have any axis be zero.
     /// - Changes will be applied the next frame.
-    pub fn set_cam(pos: Vector2, height: f32) {
-        assert!(height != 0.0);
+    pub fn set_cam(pos: Vector2, size: Vector2) {
+        assert!(size.0 != 0.0 && size.1 != 0.0);
 
         let mut writer = GRAPHICS.write().unwrap();
-        writer.scheduled_cam_data = CamData { pos, height };
+        writer.scheduled_cam_data = CamData { pos, size };
     }
 
     /// Returns the camera matrix from the current camera config.
@@ -567,7 +568,7 @@ impl Graphics {
         }
     }
 
-    pub(crate) fn render(pipeline: &dyn RenderPipeline, screen_res: (u32, u32)) -> RenderStats {
+    pub(crate) fn render(pipeline: &dyn RenderPipeline, screen_res: (u32, u32), window: *mut Window) -> RenderStats {
         let reader = GRAPHICS.read().unwrap();
         let b_reader = BATCH_DATA.read();
         let b_reader = b_reader.as_ref().unwrap().as_ref().unwrap();
@@ -588,6 +589,7 @@ impl Graphics {
         };
 
         pipeline.render(&mut screen_rt, &render_data, &mut render_stats);
+        unsafe { window.as_mut().unwrap_unchecked() }.swap_buffers();
 
         return render_stats;
     }
