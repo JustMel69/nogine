@@ -4,7 +4,7 @@ const ATLAS_TEX: &[u8] = include_bytes!("res/atlas.png");
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Sprite Drawing Example").mode(nogine::window::WindowMode::Windowed).init());
+    let mut window = unwrap_res!(WindowCfg::default().res((1280, 720)).title("Sprite Drawing Example").mode(nogine::window::WindowMode::Windowed).init());
 
     // Setup graphics
     Graphics::set_pixels_per_unit(16.0);

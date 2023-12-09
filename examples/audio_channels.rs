@@ -6,7 +6,7 @@ const BGM_AUDIO: &[u8] = include_bytes!("res/main_menu.wav");
 const SFX_AUDIO: &[u8] = include_bytes!("res/metal_bar.wav");
 
 fn main() {
-    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Audio Channels Example (W and S for BGM, Up and Down for SFX)").init());
+    let mut window = unwrap_res!(WindowCfg::default().title("Audio Channels Example (W and S for BGM, Up and Down for SFX)").init());
     
     let bgm_clip = unwrap_res!(AudioClip::new(std::io::Cursor::new(BGM_AUDIO)));
     let sfx_clip = unwrap_res!(AudioClip::new(std::io::Cursor::new(SFX_AUDIO)));

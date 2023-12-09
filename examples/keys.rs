@@ -4,7 +4,7 @@ use nogine::{window::WindowCfg, input::{Input, KeyInput}, unwrap_res};
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Press keys!").init());
+    let mut window = unwrap_res!(WindowCfg::default().title("Press keys!").init());
     
     let mut press_duration = 0.0;
     let mut last_frame = Instant::now();

@@ -360,7 +360,7 @@ impl Input {
         return reader.scroll_in;
     }
 
-    pub(crate) fn push_input(input: glfw::WindowEvent, is_main: bool) {
+    pub(crate) fn push_input(input: glfw::WindowEvent) {
         let mut writer = INPUT.write().unwrap();
         
         match input {
@@ -377,7 +377,7 @@ impl Input {
             glfw::WindowEvent::FileDrop(p) => writer.window_in.push(WindowInput::FileDrop(p)),
             glfw::WindowEvent::Maximize(b) => writer.window_in.push(if b { WindowInput::WinMaximize } else { WindowInput::WinDemaximize }),
             glfw::WindowEvent::ContentScale(x, y) => writer.window_in.push(WindowInput::ContentScale(x, y)),
-            glfw::WindowEvent::CursorPos(x, y) => if is_main { writer.mouse_pos = (x as f32, y as f32) }
+            glfw::WindowEvent::CursorPos(x, y) => writer.mouse_pos = (x as f32, y as f32),
 
             glfw::WindowEvent::MouseButton(k, a, _) => Self::set_mouse_state(&mut writer, k.into(), a.into()),
             glfw::WindowEvent::Scroll(x, y) => writer.scroll_in = (x as f32, y as f32),

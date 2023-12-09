@@ -2,7 +2,7 @@ use nogine::{graphics::{Graphics, BlendingMode}, window::{WindowCfg, WindowMode}
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Blending Modes Example").mode(WindowMode::Windowed).init());
+    let mut window = unwrap_res!(WindowCfg::default().res((1280, 720)).title("Blending Modes Example").mode(WindowMode::Windowed).init());
 
     // Setup graphics
     Graphics::set_clear_col(Color4(0.1, 0.2, 0.3, 1.0));

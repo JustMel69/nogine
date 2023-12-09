@@ -20,7 +20,7 @@ impl RenderPipeline for CustomPipeline {
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Blit Example").mode(WindowMode::Windowed).init());
+    let mut window = unwrap_res!(WindowCfg::default().res((1280, 720)).title("Blit Example").mode(WindowMode::Windowed).init());
 
     // Setup graphics
     Graphics::set_clear_col(Color4(0.3, 0.2, 0.1, 1.0));

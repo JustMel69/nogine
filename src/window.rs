@@ -43,11 +43,6 @@ impl<'a> WindowCfg<'a> {
         return self;
     }
 
-    pub fn main(mut self, val: bool) -> Self {
-        self.main = val;
-        return self;
-    }
-
     pub fn init(self) -> Res<Window, WindowError> {
         Logger::init();
         
@@ -70,7 +65,7 @@ impl<'a> WindowCfg<'a> {
         Audio::init();
 
         log_info!("Window initialized.");
-        return Ok(Window { window, events, main: self.main, glfw, def_res: self.res });
+        return Ok(Window { window, events, glfw, def_res: self.res });
     }
 }
 
@@ -87,7 +82,6 @@ impl<'a> Default for WindowCfg<'a> {
 pub struct Window {
     window: glfw::Window,
     events: Receiver<(f64, glfw::WindowEvent)>,
-    main: bool,
     glfw: glfw::Glfw,
     def_res: (u32, u32),
 }
@@ -102,7 +96,7 @@ impl Window {
         self.glfw.poll_events();
 
         for (_, ev) in glfw::flush_messages(&self.events) {
-            Input::push_input(ev, self.main);
+            Input::push_input(ev);
         }
         
     }

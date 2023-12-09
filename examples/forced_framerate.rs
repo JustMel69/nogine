@@ -4,7 +4,7 @@ use nogine::{window::WindowCfg, unwrap_res};
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Forced Framerate Example").init());
+    let mut window = unwrap_res!(WindowCfg::default().title("Forced Framerate Example").init());
     
     let mut last_frame = Instant::now();
     while window.is_running() {

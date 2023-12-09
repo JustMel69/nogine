@@ -2,7 +2,7 @@ use nogine::{graphics::Graphics, window::{WindowCfg, WindowMode}, color::{Color4
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Figures Example").mode(WindowMode::Windowed).init());
+    let mut window = unwrap_res!(WindowCfg::default().res((1280, 720)).title("Figures Example").mode(WindowMode::Windowed).init());
 
     while window.is_running() {
         window.pre_tick(None);

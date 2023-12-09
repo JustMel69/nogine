@@ -1,7 +1,7 @@
 use nogine::{window::{WindowCfg, WindowMode}, unwrap_res, input::{Input, KeyInput}};
 
 fn main() {
-    let mut window = unwrap_res!(WindowCfg::default().main(true).title("Fullscreen toggle").init());
+    let mut window = unwrap_res!(WindowCfg::default().title("Fullscreen toggle").init());
 
     let mut fullscreen = false;
 

@@ -19,7 +19,7 @@ void main() {
 
 fn main() {
     // Create Window
-    let mut window = unwrap_res!(WindowCfg::default().main(true).res((1280, 720)).title("Custom Shader Example").mode(WindowMode::Windowed).init());
+    let mut window = unwrap_res!(WindowCfg::default().res((1280, 720)).title("Custom Shader Example").mode(WindowMode::Windowed).init());
     
     // Create shader and material
     let shader = unwrap_res!(Shader::new(unwrap_res!(&SubShader::new(&CUSTOM_VERT, SubShaderType::Vert)), &DefaultShaders::def_plain_frag()));
