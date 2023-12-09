@@ -3,12 +3,9 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, graphics::{Graphics, RenderStats, pipeline::{RenderPipeline, DefaultRenderPipeline}}, audio::Audio, logging::Logger, log_info, assert_expr};
+use crate::{Res, input::Input, graphics::{Graphics, RenderStats, pipeline::{RenderPipeline, DefaultRenderPipeline}}, audio::Audio, logging::Logger, log_info, assert_expr, unwrap_opt};
 
 use super::gl_call;
-
-#[repr(transparent)]
-pub struct Monitor<'a>(&'a glfw::Monitor);
 
 #[derive(Debug, Error)]
 pub enum WindowError {
@@ -18,21 +15,15 @@ pub enum WindowError {
     CreationFailure,
 }
 
-pub enum WindowMode<'a> {
-    Fullscreen(Monitor<'a>),
+pub enum WindowMode {
+    Fullscreen,
     Windowed,
-}
-
-impl<'a> Into<glfw::WindowMode<'a>> for WindowMode<'a> {
-    fn into(self) -> glfw::WindowMode<'a> {
-        unsafe { std::mem::transmute::<Self, glfw::WindowMode>(self) }
-    }
 }
 
 pub struct WindowCfg<'a> {
     pub res: (u32, u32),
     pub title: &'a str,
-    pub mode: WindowMode<'a>,
+    pub mode: WindowMode,
     pub main: bool,
 }
 
@@ -47,7 +38,7 @@ impl<'a> WindowCfg<'a> {
         return self;
     }
 
-    pub fn mode(mut self, val: WindowMode<'a>) -> Self {
+    pub fn mode(mut self, val: WindowMode) -> Self {
         self.mode = val;
         return self;
     }
@@ -62,7 +53,13 @@ impl<'a> WindowCfg<'a> {
         
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| WindowError::from(e))?;
         
-        let (mut window, events) = glfw.create_window(self.res.0, self.res.1, self.title, self.mode.into()).ok_or(WindowError::CreationFailure)?;
+        let monitor = glfw::Monitor::from_primary();
+        let mode = match self.mode {
+            WindowMode::Fullscreen => glfw::WindowMode::FullScreen(&monitor),
+            WindowMode::Windowed => glfw::WindowMode::Windowed,
+        };
+
+        let (mut window, events) = glfw.create_window(self.res.0, self.res.1, self.title, mode).ok_or(WindowError::CreationFailure)?;
         window.set_all_polling(true);
         window.make_current();
 
@@ -73,7 +70,7 @@ impl<'a> WindowCfg<'a> {
         Audio::init();
 
         log_info!("Window initialized.");
-        return Ok(Window { window, events, main: self.main, glfw });
+        return Ok(Window { window, events, main: self.main, glfw, def_res: self.res });
     }
 }
 
@@ -92,6 +89,7 @@ pub struct Window {
     events: Receiver<(f64, glfw::WindowEvent)>,
     main: bool,
     glfw: glfw::Glfw,
+    def_res: (u32, u32),
 }
 
 impl Window {
@@ -191,6 +189,25 @@ impl Window {
     #[inline]
     pub fn minimize(&mut self) {
         self.window.iconify()
+    }
+
+    #[inline]
+    pub fn set_window_mode(&mut self, mode: WindowMode) {
+        let monitor = glfw::Monitor::from_primary();
+        let video_mode = unwrap_opt!(monitor.get_video_mode(), "Couldn't retrieve monitor video mode");
+
+        match mode {
+            WindowMode::Fullscreen => self.window.set_monitor(glfw::WindowMode::FullScreen(&monitor), 0, 0, video_mode.width, video_mode.height, Some(video_mode.refresh_rate)),
+            WindowMode::Windowed => {
+                let res = self.def_res;
+
+                let x = video_mode.width / 2 - res.0 / 2;
+                let y = video_mode.height / 2 - res.1 / 2;
+                self.window.set_monitor(glfw::WindowMode::Windowed, x as i32, y as i32, res.0, res.1, None)
+            },
+        }
+
+        //self.window.set_monitor(mode, xpos, ypos, width, height, refresh_rate)
     }
 
     #[inline]
