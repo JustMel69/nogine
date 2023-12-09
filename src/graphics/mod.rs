@@ -540,6 +540,13 @@ impl Graphics {
         writer.pixels_per_unit = ppu;
     }
 
+    /// Returns the current pixels per unit.
+    /// - `ppu` must be positive.
+    pub fn get_pixels_per_unit() -> f32 {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.pixels_per_unit;
+    }
+
     /// Sets the camera parameters.
     /// - 'size' must not have any axis be zero.
     /// - Changes will be applied the next frame.
