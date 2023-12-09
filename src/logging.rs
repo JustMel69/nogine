@@ -36,8 +36,18 @@ macro_rules! unwrap_res {
 
 #[macro_export]
 macro_rules! unwrap_opt {
+    ($e:expr, $($tt:tt)+) => {
+        match $e {
+            Some(x) => x,
+            None => {
+                $crate::log_error!($($tt)+);
+                std::process::exit(1);
+            }
+        }
+    };
+    
     ($e:expr) => {
-        $e.match {
+        match $e {
             Some(x) => x,
             None => {
                 $crate::log_error!("Unwrapped on 'None'.");
