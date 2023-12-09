@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/JustMel69/nogine"
+license = "MIT"
 
 
 [dependencies]
