@@ -548,13 +548,13 @@ impl Graphics {
     }
 
     /// Sets the camera parameters.
-    /// - 'size' must not have any axis be zero.
+    /// - 'half_size' must not have any axis be zero.
     /// - Changes will be applied the next frame.
-    pub fn set_cam(pos: Vector2, size: Vector2) {
-        assert_expr!(size.0 != 0.0 && size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
+    pub fn set_cam(pos: Vector2, half_size: Vector2) {
+        assert_expr!(half_size.0 != 0.0 && half_size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
 
         let mut writer = GRAPHICS.write().unwrap();
-        writer.scheduled_cam_data = CamData { pos, size };
+        writer.scheduled_cam_data = CamData { pos, size: half_size };
     }
 
     /// Returns the camera matrix from the current camera config.
