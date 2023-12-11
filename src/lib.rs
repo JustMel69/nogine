@@ -14,7 +14,7 @@ pub mod logging;
 type Res<T, E> = Result<T, E>;
 
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "gl_debug")]
 macro_rules! gl_call {
     ($x:expr) => {
         unsafe {
@@ -26,7 +26,7 @@ macro_rules! gl_call {
     };
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(not(feature = "gl_debug"))]
 macro_rules! gl_call {
     ($x:expr) => {
         unsafe { $x } 
@@ -35,12 +35,12 @@ macro_rules! gl_call {
 
 pub(crate) use gl_call;
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "gl_debug")]
 unsafe fn gl_clear_error() {
     while gl::GetError() != gl::NO_ERROR {}
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "gl_debug")]
 unsafe fn gl_print_err(print_metadata: &str) {
     loop {
         let err = gl::GetError();
