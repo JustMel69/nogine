@@ -54,10 +54,22 @@ const DEF_ELLIPSE_FRAG: &str = include_str!("../inline/def_ellipse_shader.frag")
 const DEF_BLIT_VERT: &str = include_str!("../inline/def_blit_shader.vert");
 const DEF_BLIT_FRAG: &str = include_str!("../inline/def_blit_shader.frag");
 
-const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, size: Vector2::ONE };
-struct CamData {
+const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, half_size: Vector2::ONE };
+
+#[derive(Clone, Copy)]
+pub struct CamData {
     pos: Vector2,
-    size: Vector2,
+    half_size: Vector2,
+}
+
+impl CamData {
+    pub fn pos(&self) -> Vector2 {
+        self.pos
+    }
+
+    pub fn half_size(&self) -> Vector2 {
+        self.half_size
+    }
 }
 
 pub struct DefaultShaders {
@@ -241,7 +253,7 @@ impl BatchData {
 /// Main struct for drawing.
 pub struct Graphics {
     scheduled_cam_data: CamData,
-    curr_cam_height: f32,
+    curr_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
     
     pixels_per_unit: f32,
@@ -261,7 +273,7 @@ pub struct Graphics {
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_data: DEFAULT_CAM_DATA, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET };
     }
 
     pub(crate) fn init() {
@@ -287,9 +299,9 @@ impl Graphics {
         let mut writer = GRAPHICS.write().unwrap();
         
         let cam_data = &writer.scheduled_cam_data;
-        let size = Vector2(cam_data.size.0, cam_data.size.1);
+        let size = Vector2(cam_data.half_size.0, cam_data.half_size.1);
         writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
-        writer.curr_cam_height = size.1;
+        writer.curr_cam_data = writer.scheduled_cam_data
     }
 
 
@@ -525,10 +537,10 @@ impl Graphics {
         return reader.clear_col;
     }
 
-    /// Gets the camera height.
-    pub fn get_cam_height() -> f32 {
+    /// Gets the camera data.
+    pub fn get_cam_data() -> CamData {
         let reader = GRAPHICS.read().unwrap();
-        return reader.curr_cam_height;
+        return reader.curr_cam_data;
     }
 
     /// Sets the current pixels per unit.
@@ -554,7 +566,7 @@ impl Graphics {
         assert_expr!(half_size.0 != 0.0 && half_size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
 
         let mut writer = GRAPHICS.write().unwrap();
-        writer.scheduled_cam_data = CamData { pos, size: half_size };
+        writer.scheduled_cam_data = CamData { pos, half_size };
     }
 
     /// Returns the camera matrix from the current camera config.

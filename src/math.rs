@@ -1,4 +1,4 @@
-use std::ops::{Add, Neg, Sub, Mul, Div, AddAssign};
+use std::{ops::{Add, Neg, Sub, Mul, Div, AddAssign}, fmt::Display};
 
 use crate::assert_expr;
 
@@ -151,6 +151,12 @@ impl Into<(f32, f32)> for Vector2 {
 impl Into<Vector2> for (f32, f32) {
     fn into(self) -> Vector2 {
         return Vector2(self.0, self.1);
+    }
+}
+
+impl Display for Vector2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.0, self.1)
     }
 }
 
