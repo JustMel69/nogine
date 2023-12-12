@@ -62,3 +62,7 @@ unsafe fn gl_print_err(print_metadata: &str) {
         eprintln!("{print_metadata}\t\t GL_ERROR: {err}");
     }
 }
+
+pub fn version() -> &'static str {
+    return "v0.2.0";
+}
