@@ -65,7 +65,7 @@ impl<'a> WindowCfg<'a> {
         Audio::init();
 
         log_info!("Window initialized.");
-        return Ok(Window { window, events, glfw, def_res: self.res });
+        return Ok(Window { window, events, glfw, def_res: self.res, last_frame: Instant::now(), target_framerate: None, ts: 0.02 });
     }
 }
 
@@ -84,6 +84,10 @@ pub struct Window {
     events: Receiver<(f64, glfw::WindowEvent)>,
     glfw: glfw::Glfw,
     def_res: (u32, u32),
+
+    last_frame: Instant,
+    target_framerate: Option<f32>,
+    ts: f32,
 }
 
 impl Window {
@@ -116,6 +120,12 @@ impl Window {
 
         Input::flush();
         self.handle_events();
+
+        if let Some(target_framerate) = self.target_framerate {
+            self.force_framerate(target_framerate);
+        }
+        self.ts = self.last_frame.elapsed().as_secs_f32();
+        self.last_frame = Instant::now();
     }
 
     #[inline]
@@ -209,13 +219,13 @@ impl Window {
         self.window.swap_buffers();
     }
 
-    pub fn force_framerate(&self, last_frame: Instant, target_framerate: f64) {
+    fn force_framerate(&self, target_framerate: f32) {
         assert_expr!(target_framerate > 0.0, "Target framerate must be greater than 0");
         
         let target_ts = 1.0 / target_framerate;
 
         loop {
-            let ts = last_frame.elapsed().as_secs_f64();
+            let ts = self.last_frame.elapsed().as_secs_f32();
             if ts > target_ts {
                 return;
             }
@@ -224,5 +234,20 @@ impl Window {
 
     pub fn set_vsync(&mut self, vsync: bool) {
         self.glfw.set_swap_interval(glfw::SwapInterval::Sync(if vsync { 1 } else { 0 }))
+    }
+
+    #[inline]
+    pub fn target_framerate(&self) -> Option<f32> {
+        self.target_framerate
+    }
+
+    #[inline]
+    pub fn set_target_framerate(&mut self, target_framerate: Option<f32>) {
+        self.target_framerate = target_framerate;
+    }
+
+    #[inline]
+    pub fn ts(&self) -> f32 {
+        self.ts
     }
 }

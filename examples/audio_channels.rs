@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use nogine::{audio::{Audio, clip::AudioClip}, window::WindowCfg, input::{Input, KeyInput}, unwrap_res};
 
 const BGM_AUDIO: &[u8] = include_bytes!("res/main_menu.wav");
@@ -23,7 +21,8 @@ fn main() {
     Audio::set_target("sfx");
     Audio::play(&sfx_clip, true, 1.0);
 
-    let mut last_frame = Instant::now();
+    window.set_target_framerate(Some(60.0));
+
     while window.is_running() {
         window.pre_tick(None);
 
@@ -49,7 +48,5 @@ fn main() {
         }
 
         window.post_tick();
-        window.force_framerate(last_frame, 60.0);
-        last_frame = Instant::now();
     }
 }
