@@ -321,6 +321,7 @@ impl Input {
         return x == 0b11;
     }
 
+    /// Returns the mouse position in screen space.
     pub fn mouse_pos() -> Vector2 {
         let reader = INPUT.read().unwrap();
         
