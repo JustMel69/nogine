@@ -1,5 +1,7 @@
 use std::{sync::RwLock, path::PathBuf};
 
+use crate::math::Vector2;
+
 use super::gl_call;
 
 #[derive(Clone, Copy, Debug)]
@@ -177,14 +179,14 @@ pub struct Input {
     window_in: Vec<WindowInput>,
     keyboard_flags: [u64; 7],
     mouse_flags: u16,
-    scroll_in: (f32, f32),
+    scroll_in: Vector2,
     written_in: String,
-    mouse_pos: (f32, f32),
+    mouse_pos: Vector2,
 }
 
 impl Input {
     const fn new() -> Self {
-        Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: (0.0, 0.0), mouse_flags: 0, mouse_pos: (0.0, 0.0) }
+        Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: Vector2::ZERO, mouse_flags: 0, mouse_pos: Vector2::ZERO }
     }
 
     pub(crate) fn flush() {
@@ -194,7 +196,7 @@ impl Input {
 
         writer.window_in.clear();
         writer.written_in.clear();
-        writer.scroll_in = (0.0, 0.0);
+        writer.scroll_in = Vector2::ZERO;
     }
 
 
@@ -319,6 +321,12 @@ impl Input {
         return x == 0b11;
     }
 
+    pub fn mouse_pos() -> Vector2 {
+        let reader = INPUT.read().unwrap();
+        
+        return reader.mouse_pos;
+    }
+
     fn mouse_state(button: MouseInput) -> u8 {
         let reader = INPUT.read().unwrap();
 
@@ -355,7 +363,7 @@ impl Input {
     }
 
     /// Gets the current mouse scroll (some devices have two scroll axis, for regular vertical just use the second axis)
-    pub fn get_scroll() -> (f32, f32) {
+    pub fn get_scroll() -> Vector2 {
         let reader = INPUT.read().unwrap();
         return reader.scroll_in;
     }
@@ -377,10 +385,10 @@ impl Input {
             glfw::WindowEvent::FileDrop(p) => writer.window_in.push(WindowInput::FileDrop(p)),
             glfw::WindowEvent::Maximize(b) => writer.window_in.push(if b { WindowInput::WinMaximize } else { WindowInput::WinDemaximize }),
             glfw::WindowEvent::ContentScale(x, y) => writer.window_in.push(WindowInput::ContentScale(x, y)),
-            glfw::WindowEvent::CursorPos(x, y) => writer.mouse_pos = (x as f32, y as f32),
+            glfw::WindowEvent::CursorPos(x, y) => writer.mouse_pos = Vector2(x as f32, y as f32),
 
             glfw::WindowEvent::MouseButton(k, a, _) => Self::set_mouse_state(&mut writer, k.into(), a.into()),
-            glfw::WindowEvent::Scroll(x, y) => writer.scroll_in = (x as f32, y as f32),
+            glfw::WindowEvent::Scroll(x, y) => writer.scroll_in = Vector2(x as f32, y as f32),
             glfw::WindowEvent::Key(k, _, a, _) => Self::set_key_state(&mut writer, k.into(), a.into()),
             glfw::WindowEvent::Char(c) => writer.written_in.push(c),
             _ => {}
