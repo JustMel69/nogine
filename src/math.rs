@@ -2,16 +2,37 @@ use std::{ops::{Add, Neg, Sub, Mul, Div, AddAssign}, fmt::Display};
 
 use crate::assert_expr;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector2(pub f32, pub f32);
 
 impl Vector2 {
     pub const ZERO: Self = Self(0.0, 0.0);
-    pub const UP: Self = Self(0.0, 1.0);
-    pub const DOWN: Self = Self(0.0, -1.0);
-    pub const RIGHT: Self = Self(1.0, 0.0);
-    pub const LEFT: Self = Self(-1.0, 0.0);
-    pub const ONE: Self = Self(1.0, 1.0);
+    pub const UP: Self = Self::up(1.0);
+    pub const DOWN: Self = Self::down(1.0);
+    pub const RIGHT: Self = Self::right(1.0);
+    pub const LEFT: Self = Self::left(1.0);
+    pub const ONE: Self = Self::one(1.0);
+
+    pub const fn up(fact: f32) -> Self {
+        return Self(0.0, fact);
+    }
+
+    pub const fn down(fact: f32) -> Self {
+        return Self(0.0, -fact);
+    }
+
+    pub const fn right(fact: f32) -> Self {
+        return Self(fact, 0.0);
+    }
+
+    pub const fn left(fact: f32) -> Self {
+        return Self(-fact, 0.0);
+    }
+
+    pub const fn one(fact: f32) -> Self {
+        return Self(fact, fact);
+    }
+
 
     pub fn x(self) -> f32 {
         return self.0;
