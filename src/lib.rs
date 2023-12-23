@@ -8,6 +8,7 @@ pub mod math;
 pub mod audio;
 pub mod utils {
     pub mod heap;
+    pub mod rng;
 }
 pub mod logging;
 
