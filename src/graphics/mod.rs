@@ -257,6 +257,7 @@ pub struct Graphics {
     curr_cam_mat: Matrix3x3,
     
     pixels_per_unit: f32,
+    pivot: Vector2,
 
     default_shaders: DefaultShaders,
     default_materials: DefaultMaterials,
@@ -273,7 +274,7 @@ pub struct Graphics {
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_data: DEFAULT_CAM_DATA, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_data: DEFAULT_CAM_DATA, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET, pivot: Vector2::ZERO };
     }
 
     pub(crate) fn init() {
@@ -309,23 +310,26 @@ impl Graphics {
     // |>-<   Rect Drawing   >-<| //
     
     /// Draws a non rotated rect.
-    pub fn draw_rect(left_down: Vector2, extents: Vector2, color: Color4) {
-        Self::draw_rect_full(left_down, extents, 0.0, [color; 4])
+    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) {
+        Self::draw_rect_full(pos, extents, 0.0, [color; 4])
     }
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
     /// Draws a rotated rect with control over the color of every vert.<br> 
-    /// - The rect is rotated around the left-down vertice.
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_rect_full(left_down: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
+    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
         #[repr(C)]
         struct Vert(Vector2, Color4);
 
-        let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
-        let vert_data = [Vert(&tf_mat * Vector2::ZERO, colors[0]), Vert(&tf_mat * Vector2::UP, colors[1]), Vert(&tf_mat * Vector2::ONE, colors[2]), Vert(&tf_mat * Vector2::RIGHT, colors[3])];
+        let pivot = {
+            GRAPHICS.read().as_ref().unwrap().pivot
+        };
+
+        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), colors[0]), Vert(&tf_mat * (Vector2::UP - pivot), colors[1]), Vert(&tf_mat * (Vector2::ONE - pivot), colors[2]), Vert(&tf_mat * (Vector2::RIGHT - pivot), colors[3])];
 
         let vert_data = convert_vert_data(&vert_data);
 
@@ -341,38 +345,35 @@ impl Graphics {
     // |>-<   Texture Drawing   >-<| //
 
     /// Draws a rotated texture.<br>
-    /// - The texture is rotated around the left-down vertice.
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_texture(left_down: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
-        Self::draw_texture_full(left_down, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
+    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
+        Self::draw_texture_full(pos, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
     /// Draws a rotated sprite.<br>
-    /// - The sprite is rotated around the left-down vertice.
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_sprite(left_down: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
-        Self::draw_texture_full(left_down, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
+    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
+        Self::draw_texture_full(pos, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
     }
 
     /// Draws a rotated texture with control over the color of each vert and the uv rect utilized.<br>
-    /// - The texture is rotated around the left-down vertice.
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_texture_full(left_down: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
+    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
         let tex_res = tex.dims();
-        let ppu = {
+        let (ppu, pivot) = {
             let reader = GRAPHICS.read().unwrap();
-            reader.pixels_per_unit
+            (reader.pixels_per_unit, reader.pivot)
         };
         let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale).scale(uvs.size());
 
-        let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
-        let vert_data = [Vert(&tf_mat * Vector2::ZERO, colors[0], uvs.lu()), Vert(&tf_mat * Vector2::UP, colors[1], uvs.ld()), Vert(&tf_mat * Vector2::ONE, colors[2], uvs.rd()), Vert(&tf_mat * Vector2::RIGHT, colors[3], uvs.ru())];
+        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), colors[0], uvs.lu()), Vert(&tf_mat * (Vector2::UP - pivot), colors[1], uvs.ld()), Vert(&tf_mat * (Vector2::ONE - pivot), colors[2], uvs.rd()), Vert(&tf_mat * (Vector2::RIGHT - pivot), colors[3], uvs.ru())];
 
         let textures = &[tex];
         let vert_data = convert_vert_data(&vert_data);
@@ -398,8 +399,12 @@ impl Graphics {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
+        let pivot = {
+            GRAPHICS.read().as_ref().unwrap().pivot
+        };
+
         let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
-        let vert_data = [Vert(&tf_mat * Vector2::ZERO, color, Vector2::UP), Vert(&tf_mat * Vector2::UP, color, Vector2::ZERO), Vert(&tf_mat * Vector2::ONE, color, Vector2::RIGHT), Vert(&tf_mat * Vector2::RIGHT, color, Vector2::ONE)];
+        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), color, Vector2::UP), Vert(&tf_mat * (Vector2::UP - pivot), color, Vector2::ZERO), Vert(&tf_mat * (Vector2::ONE - pivot), color, Vector2::RIGHT), Vert(&tf_mat * (Vector2::RIGHT - pivot), color, Vector2::ONE)];
 
         let vert_data = convert_vert_data(&vert_data);
 
@@ -433,10 +438,14 @@ impl Graphics {
 
         let tf_mat = Matrix3x3::transform_matrix(center, rot, half_extents);
 
+        let pivot = {
+            GRAPHICS.read().as_ref().unwrap().pivot
+        };
+
         verts.push(Vert(&tf_mat * Vector2::ZERO, color));
         for i in 0..sides {
             let theta = delta_theta * (i as f32);
-            let pos = &tf_mat * Vector2::UP.rotate(theta);
+            let pos = &tf_mat * (Vector2::UP.rotate(theta) - pivot);
             verts.push(Vert(pos, color));
         }
         let mut tris: Vec<u32> = Vec::with_capacity(sides as usize * 3);
@@ -461,7 +470,7 @@ impl Graphics {
     }
 
 
-    /// Draw a custom mesh. Prone to not behaving.
+    /// Draw a custom mesh. Prone to not behaving. Not affected by pivot.
     pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         assert_expr!(tri_data.len() % 3 == 0, "The number of indices must be a multiple of 3.");
 
@@ -557,6 +566,18 @@ impl Graphics {
     pub fn get_pixels_per_unit() -> f32 {
         let reader = GRAPHICS.read().unwrap();
         return reader.pixels_per_unit;
+    }
+
+    /// Sets the pivot.
+    pub fn set_pivot(pivot: Vector2) {
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.pivot = pivot;
+    }
+
+    /// Returns the pivot.
+    pub fn get_pivot() -> Vector2 {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.pivot;
     }
 
     /// Sets the camera parameters.
