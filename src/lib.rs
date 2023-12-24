@@ -65,5 +65,5 @@ unsafe fn gl_print_err(print_metadata: &str) {
 }
 
 pub fn version() -> &'static str {
-    return "v0.3.0";
+    return "v0.3.1";
 }
