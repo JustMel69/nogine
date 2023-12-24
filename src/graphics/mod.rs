@@ -557,6 +557,16 @@ impl Graphics {
         writer.scheduled_cam_data = CamData { pos, size };
     }
 
+    /// Forces the camera temporarily to be a new value. This bypasses the camera scheduling, but the value will also be overriden by the scheduled one once the next frame starts.
+    /// - 'size' must not have any axis be zero.
+    pub unsafe fn force_cam_temp(pos: Vector2, size: Vector2) {
+        assert_expr!(size.0 != 0.0 && size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
+
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.curr_cam_mat = Matrix3x3::cam_matrix(pos, size);
+        writer.curr_cam_height = size.1;
+    }
+
     /// Returns the camera matrix from the current camera config.
     /// - This matrix will not change when `set_cam` is called until the next frame.
     pub fn get_cam_matrix() -> Matrix3x3 {
