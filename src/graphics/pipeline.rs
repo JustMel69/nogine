@@ -4,6 +4,33 @@ use super::{gl_call, batch::BatchProduct, RenderStats, texture::TextureFiltering
 
 pub const DEFAULT_RENDER_TARGET: u8 = 0;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ScreenRect {
+    l: i32, r: i32, u: i32, d: i32,
+}
+
+impl ScreenRect {
+    pub fn new(pos: (i32, i32), size: (i32, i32)) -> Self {
+        return Self { l: pos.0, r: pos.0 + size.0, d: pos.1, u: pos.1 + size.1 };
+    }
+
+    pub fn l(&self) -> i32 {
+        self.l
+    }
+
+    pub fn r(&self) -> i32 {
+        self.r
+    }
+
+    pub fn u(&self) -> i32 {
+        self.u
+    }
+
+    pub fn d(&self) -> i32 {
+        self.d
+    }
+}
+
 pub struct DefaultRenderPipeline;
 impl RenderPipeline for DefaultRenderPipeline {
     fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, stats: &mut RenderStats) {
@@ -93,19 +120,19 @@ impl RenderTexture {
         self.render_with_shader(source, &DefaultMaterials::def_blit_material(), blending, stats);
     }
 
-    pub fn combine_ext(&mut self, source: &Self, blending: BlendingMode, rect: (i32, i32, u32, u32), stats: &mut RenderStats) {
+    pub fn combine_ext(&mut self, source: &Self, blending: BlendingMode, rect: ScreenRect, stats: &mut RenderStats) {
         self.render_with_shader_ext(source, &DefaultMaterials::def_blit_material(), blending, rect, stats);
     }
 
     /// Soure cannot be the Screen Render Texture.
     pub fn render_with_shader(&mut self, source: &Self, material: &Material, blending: BlendingMode, stats: &mut RenderStats) {
-        self.render_with_shader_ext(source, material, blending, (0, 0, self.res.0, self.res.1), stats);
+        self.render_with_shader_ext(source, material, blending, ScreenRect::new((0, 0), (self.res.0 as i32, self.res.1 as i32)), stats);
     }
 
-    pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: (i32, i32, u32, u32), stats: &mut RenderStats) {
+    pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: ScreenRect, stats: &mut RenderStats) {
         assert_expr!(source.fbo != 0, "No source can be a Screen Render Texture");
         
-        gl_call!(gl::Viewport(rect.0, rect.1, rect.2 as i32, rect.3 as i32));
+        gl_call!(gl::Viewport(rect.l, rect.d, rect.r - rect.l, rect.u - rect.d));
 
         blending.apply();
         RenderTexture::bind(self);

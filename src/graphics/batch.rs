@@ -9,6 +9,7 @@ pub struct RefBatchState<'a> {
     pub attribs: &'a [usize],
     pub textures: &'a [&'a Texture],
     pub blending: BlendingMode,
+    pub is_line: bool,
 }
 
 impl<'a> Into<BatchState> for RefBatchState<'a> {
@@ -17,7 +18,8 @@ impl<'a> Into<BatchState> for RefBatchState<'a> {
             self.material,
             self.attribs.into(),
             self.textures.iter().map(|x| x.clone_core()).collect(),
-            self.blending
+            self.blending,
+            self.is_line
         );
     }
 }
@@ -28,11 +30,12 @@ pub struct BatchState {
     attribs: Box<[usize]>,
     textures: Box<[Arc<TextureCore>]>,
     blending: BlendingMode,
+    is_line: bool,
 }
 
 impl BatchState {
-    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode) -> Self {
-        return Self { material, attribs, textures, blending };
+    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode, is_line: bool) -> Self {
+        return Self { material, attribs, textures, blending, is_line };
     }
 }
 
@@ -72,6 +75,7 @@ impl BatchMesh {
         return self.state.attribs.iter().eq(state.attribs.iter()) &&
             self.state.blending == state.blending &&
             self.state.material == state.material &&
+            self.state.is_line == state.is_line &&
             self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| x.core()));
     }
 }
@@ -106,6 +110,11 @@ impl BatchProduct {
 
         self.state.blending.apply();
 
-        gl_call!(gl::DrawElements(gl::TRIANGLES, self.trilen, gl::UNSIGNED_INT, std::ptr::null()));
+        gl_call!(gl::DrawElements(
+            if self.state.is_line { gl::LINES } else { gl::TRIANGLES },
+            self.trilen,
+            gl::UNSIGNED_INT,
+            std::ptr::null()
+        ));
     }
 }

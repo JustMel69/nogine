@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use nogine::{audio::{Audio, clip::AudioClip}, window::WindowCfg, input::{Input, KeyInput}, unwrap_res};
 
 
@@ -10,7 +8,8 @@ fn main() {
     
     let clip = unwrap_res!(AudioClip::new(std::io::Cursor::new(METAL_BAR_AUDIO)));
 
-    let mut last_frame = Instant::now();
+    window.set_target_framerate(Some(60.0));
+
     while window.is_running() {
         window.pre_tick(None);
 
@@ -31,7 +30,5 @@ fn main() {
         }
 
         window.post_tick();
-        window.force_framerate(last_frame, 60.0);
-        last_frame = Instant::now();
     }
 }

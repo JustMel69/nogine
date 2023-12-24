@@ -196,6 +196,7 @@ impl PartialEq for Texture {
 }
 
 /// A fragment of a texture.
+#[derive(Clone, Copy)]
 pub struct Sprite<'a>(&'a Texture, Rect);
 
 impl<'a> Sprite<'a> {

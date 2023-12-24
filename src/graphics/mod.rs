@@ -26,6 +26,7 @@ static BATCH_DATA: RwLock<Option<BatchData>> = RwLock::new(None);
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode {
     Unset,
+    Line,
     Rect,
     Textured,
     Ellipse,
@@ -54,10 +55,22 @@ const DEF_ELLIPSE_FRAG: &str = include_str!("../inline/def_ellipse_shader.frag")
 const DEF_BLIT_VERT: &str = include_str!("../inline/def_blit_shader.vert");
 const DEF_BLIT_FRAG: &str = include_str!("../inline/def_blit_shader.frag");
 
-const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, size: Vector2::ONE };
-struct CamData {
+const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, half_size: Vector2::ONE };
+
+#[derive(Clone, Copy)]
+pub struct CamData {
     pos: Vector2,
-    size: Vector2,
+    half_size: Vector2,
+}
+
+impl CamData {
+    pub fn pos(&self) -> Vector2 {
+        self.pos
+    }
+
+    pub fn half_size(&self) -> Vector2 {
+        self.half_size
+    }
 }
 
 pub struct DefaultShaders {
@@ -118,7 +131,7 @@ impl DefaultShaders {
     /// Frag subshader with `uv` input.
     pub fn def_blit_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_blit_frag.clone() }
 
-    /// Shader for rects. `plain_vert` + `plain_frag`.
+    /// Shader for rects and lines. `plain_vert` + `plain_frag`.
     pub fn def_rect_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_rect_shader.clone() }
 
     /// Shader for textured rects. `uv_vert` + `tex_frag`.
@@ -132,6 +145,7 @@ impl DefaultShaders {
 }
 
 pub struct DefaultMaterials {
+    def_line_material: Material,
     def_rect_material: Material,
     def_tex_material: Material,
     def_ellipse_material: Material,
@@ -141,20 +155,22 @@ pub struct DefaultMaterials {
 impl DefaultMaterials {
     const fn invalid() -> Self {
         return Self {
-            def_rect_material: Material::invalid(), def_tex_material: Material::invalid(), def_ellipse_material: Material::invalid(), def_blit_material: Material::invalid()
+            def_rect_material: Material::invalid(), def_tex_material: Material::invalid(), def_ellipse_material: Material::invalid(), def_blit_material: Material::invalid(), def_line_material: Material::invalid(),
         };
     }
 
     fn new(default_shaders: &DefaultShaders) -> Self{
+        let def_line_material = Material::new(&default_shaders.def_rect_shader, &[]);
         let def_rect_material = Material::new(&default_shaders.def_rect_shader, &[]);
         let def_tex_material = Material::new(&default_shaders.def_tex_shader, &[]);
         let def_ellipse_material = Material::new(&default_shaders.def_ellipse_shader, &[]);
         let def_blit_material = Material::new(&default_shaders.def_blit_shader, &[]);
 
-        return Self { def_rect_material, def_tex_material, def_ellipse_material, def_blit_material };
+        return Self { def_rect_material, def_tex_material, def_ellipse_material, def_blit_material, def_line_material };
     }
 
     
+    pub fn def_line_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_line_material.clone() }
     pub fn def_rect_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_rect_material.clone() }
     pub fn def_tex_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_tex_material.clone() }
     pub fn def_ellipse_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_ellipse_material.clone() }
@@ -241,14 +257,16 @@ impl BatchData {
 /// Main struct for drawing.
 pub struct Graphics {
     scheduled_cam_data: CamData,
-    curr_cam_height: f32,
+    curr_cam_data: CamData,
     curr_cam_mat: Matrix3x3,
     
     pixels_per_unit: f32,
+    pivot: Vector2,
 
     default_shaders: DefaultShaders,
     default_materials: DefaultMaterials,
 
+    line_material: Option<Material>,
     rect_material: Option<Material>,
     tex_material: Option<Material>,
     ellipse_material: Option<Material>,
@@ -261,7 +279,7 @@ pub struct Graphics {
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_height: 1.0, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_data: DEFAULT_CAM_DATA, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET, pivot: Vector2::ZERO, line_material: None };
     }
 
     pub(crate) fn init() {
@@ -287,9 +305,9 @@ impl Graphics {
         let mut writer = GRAPHICS.write().unwrap();
         
         let cam_data = &writer.scheduled_cam_data;
-        let size = Vector2(cam_data.size.0, cam_data.size.1);
+        let size = Vector2(cam_data.half_size.0, cam_data.half_size.1);
         writer.curr_cam_mat = Matrix3x3::cam_matrix(cam_data.pos, size);
-        writer.curr_cam_height = size.1;
+        writer.curr_cam_data = writer.scheduled_cam_data
     }
 
 
@@ -297,23 +315,26 @@ impl Graphics {
     // |>-<   Rect Drawing   >-<| //
     
     /// Draws a non rotated rect.
-    pub fn draw_rect(left_down: Vector2, extents: Vector2, color: Color4) {
-        Self::draw_rect_full(left_down, extents, 0.0, [color; 4])
+    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) {
+        Self::draw_rect_full(pos, extents, 0.0, [color; 4])
     }
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
     /// Draws a rotated rect with control over the color of every vert.<br> 
-    /// - The rect is rotated around the left-down vertice.
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_rect_full(left_down: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
+    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
         #[repr(C)]
         struct Vert(Vector2, Color4);
 
-        let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
-        let vert_data = [Vert(&tf_mat * Vector2::ZERO, colors[0]), Vert(&tf_mat * Vector2::UP, colors[1]), Vert(&tf_mat * Vector2::ONE, colors[2]), Vert(&tf_mat * Vector2::RIGHT, colors[3])];
+        let pivot = {
+            GRAPHICS.read().as_ref().unwrap().pivot
+        };
+
+        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), colors[0]), Vert(&tf_mat * (Vector2::UP - pivot), colors[1]), Vert(&tf_mat * (Vector2::ONE - pivot), colors[2]), Vert(&tf_mat * (Vector2::RIGHT - pivot), colors[3])];
 
         let vert_data = convert_vert_data(&vert_data);
 
@@ -329,38 +350,35 @@ impl Graphics {
     // |>-<   Texture Drawing   >-<| //
 
     /// Draws a rotated texture.<br>
-    /// - The texture is rotated around the left-down vertice.
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_texture(left_down: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
-        Self::draw_texture_full(left_down, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
+    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
+        Self::draw_texture_full(pos, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
     /// Draws a rotated sprite.<br>
-    /// - The sprite is rotated around the left-down vertice.
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_sprite(left_down: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
-        Self::draw_texture_full(left_down, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
+    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
+        Self::draw_texture_full(pos, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
     }
 
     /// Draws a rotated texture with control over the color of each vert and the uv rect utilized.<br>
-    /// - The texture is rotated around the left-down vertice.
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_texture_full(left_down: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
+    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
         let tex_res = tex.dims();
-        let ppu = {
+        let (ppu, pivot) = {
             let reader = GRAPHICS.read().unwrap();
-            reader.pixels_per_unit
+            (reader.pixels_per_unit, reader.pivot)
         };
         let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / ppu).scale(scale).scale(uvs.size());
 
-        let tf_mat = Matrix3x3::transform_matrix(left_down, rot, extents);
-        let vert_data = [Vert(&tf_mat * Vector2::ZERO, colors[0], uvs.lu()), Vert(&tf_mat * Vector2::UP, colors[1], uvs.ld()), Vert(&tf_mat * Vector2::ONE, colors[2], uvs.rd()), Vert(&tf_mat * Vector2::RIGHT, colors[3], uvs.ru())];
+        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), colors[0], uvs.lu()), Vert(&tf_mat * (Vector2::UP - pivot), colors[1], uvs.ld()), Vert(&tf_mat * (Vector2::ONE - pivot), colors[2], uvs.rd()), Vert(&tf_mat * (Vector2::RIGHT - pivot), colors[3], uvs.ru())];
 
         let textures = &[tex];
         let vert_data = convert_vert_data(&vert_data);
@@ -386,8 +404,12 @@ impl Graphics {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
+        let pivot = {
+            GRAPHICS.read().as_ref().unwrap().pivot
+        };
+
         let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
-        let vert_data = [Vert(&tf_mat * Vector2::ZERO, color, Vector2::UP), Vert(&tf_mat * Vector2::UP, color, Vector2::ZERO), Vert(&tf_mat * Vector2::ONE, color, Vector2::RIGHT), Vert(&tf_mat * Vector2::RIGHT, color, Vector2::ONE)];
+        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), color, Vector2::UP), Vert(&tf_mat * (Vector2::UP - pivot), color, Vector2::ZERO), Vert(&tf_mat * (Vector2::ONE - pivot), color, Vector2::RIGHT), Vert(&tf_mat * (Vector2::RIGHT - pivot), color, Vector2::ONE)];
 
         let vert_data = convert_vert_data(&vert_data);
 
@@ -421,10 +443,14 @@ impl Graphics {
 
         let tf_mat = Matrix3x3::transform_matrix(center, rot, half_extents);
 
+        let pivot = {
+            GRAPHICS.read().as_ref().unwrap().pivot
+        };
+
         verts.push(Vert(&tf_mat * Vector2::ZERO, color));
         for i in 0..sides {
             let theta = delta_theta * (i as f32);
-            let pos = &tf_mat * Vector2::UP.rotate(theta);
+            let pos = &tf_mat * (Vector2::UP.rotate(theta) - pivot);
             verts.push(Vert(pos, color));
         }
         let mut tris: Vec<u32> = Vec::with_capacity(sides as usize * 3);
@@ -447,9 +473,39 @@ impl Graphics {
             b_writer.send(target, state, vert_data, &tris);
         }
     }
+    
 
 
-    /// Draw a custom mesh. Prone to not behaving.
+    // |>-<   Line Drawing   >-<| //
+
+    /// Draws a line with the desired color.
+    pub fn draw_line(from: Vector2, to: Vector2, color: Color4) {
+        Self::draw_line_ext(from, to, [color; 2])
+    }
+
+    const LINE_TRIS: [u32; 2] = [0, 1];
+
+    /// Draws a line with the desired colors. The first color is the start color, and the last is the end color.
+    pub fn draw_line_ext(mut from: Vector2, mut to: Vector2, colors: [Color4; 2]) {
+        #[repr(C)]
+        struct Vert(Vector2, Color4);
+
+        from.1 = -from.1;
+        to.1 = -to.1;
+
+        let vert_data = [Vert(from, colors[0]), Vert(to, colors[1])];
+
+        let vert_data = convert_vert_data(&vert_data);
+
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Line, &[2, 4], &[]);
+        let target = reader.render_target;
+
+        BATCH_DATA.write().as_mut().unwrap().as_mut().unwrap().send(target, state, vert_data, &Self::LINE_TRIS);
+    }
+
+
+    /// Draw a custom mesh. Prone to not behaving. Not affected by pivot.
     pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         assert_expr!(tri_data.len() % 3 == 0, "The number of indices must be a multiple of 3.");
 
@@ -482,6 +538,7 @@ impl Graphics {
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
             Mode::Unset => unreachable!(),
+            Mode::Line => writer.line_material = material,
             Mode::Rect => writer.rect_material = material,
             Mode::Textured => writer.tex_material = material,
             Mode::Ellipse => writer.ellipse_material = material,
@@ -525,10 +582,10 @@ impl Graphics {
         return reader.clear_col;
     }
 
-    /// Gets the camera height.
-    pub fn get_cam_height() -> f32 {
+    /// Gets the camera data.
+    pub fn get_cam_data() -> CamData {
         let reader = GRAPHICS.read().unwrap();
-        return reader.curr_cam_height;
+        return reader.curr_cam_data;
     }
 
     /// Sets the current pixels per unit.
@@ -547,14 +604,26 @@ impl Graphics {
         return reader.pixels_per_unit;
     }
 
+    /// Sets the pivot.
+    pub fn set_pivot(pivot: Vector2) {
+        let mut writer = GRAPHICS.write().unwrap();
+        writer.pivot = pivot;
+    }
+
+    /// Returns the pivot.
+    pub fn get_pivot() -> Vector2 {
+        let reader = GRAPHICS.read().unwrap();
+        return reader.pivot;
+    }
+
     /// Sets the camera parameters.
-    /// - 'size' must not have any axis be zero.
+    /// - 'half_size' must not have any axis be zero.
     /// - Changes will be applied the next frame.
-    pub fn set_cam(pos: Vector2, size: Vector2) {
-        assert_expr!(size.0 != 0.0 && size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
+    pub fn set_cam(pos: Vector2, half_size: Vector2) {
+        assert_expr!(half_size.0 != 0.0 && half_size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
 
         let mut writer = GRAPHICS.write().unwrap();
-        writer.scheduled_cam_data = CamData { pos, size };
+        writer.scheduled_cam_data = CamData { pos, half_size };
     }
 
     /// Forces the camera temporarily to be a new value. This bypasses the camera scheduling, but the value will also be overriden by the scheduled one once the next frame starts.
@@ -578,6 +647,7 @@ impl Graphics {
         let reader = GRAPHICS.read().unwrap();
         match mode {
             Mode::Unset => None,
+            Mode::Line => Some(reader.line_material.clone().unwrap_or(reader.default_materials.def_line_material.clone())),
             Mode::Rect => Some(reader.rect_material.clone().unwrap_or(reader.default_materials.def_rect_material.clone())),
             Mode::Textured => Some(reader.tex_material.clone().unwrap_or(reader.default_materials.def_tex_material.clone())),
             Mode::Ellipse => Some(reader.ellipse_material.clone().unwrap_or(reader.default_materials.def_ellipse_material.clone())),
@@ -631,6 +701,7 @@ impl Graphics {
             attribs,
             textures,
             blending: self.get_blending(),
+            is_line: matches!(mode, Mode::Line),
         };
     }
 }

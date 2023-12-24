@@ -83,7 +83,7 @@ pub struct Audio {
 }
 
 impl Audio {
-    pub const DEFAULT_CHANNEL: &str = "default";
+    pub const DEFAULT_CHANNEL: &'static str = "default";
     
     fn new() -> Self {
         let (_stream, stream_handle) = OutputStream::try_default().unwrap();
