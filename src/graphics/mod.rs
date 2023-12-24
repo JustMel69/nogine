@@ -26,6 +26,7 @@ static BATCH_DATA: RwLock<Option<BatchData>> = RwLock::new(None);
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode {
     Unset,
+    Line,
     Rect,
     Textured,
     Ellipse,
@@ -130,7 +131,7 @@ impl DefaultShaders {
     /// Frag subshader with `uv` input.
     pub fn def_blit_frag() -> SubShader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_blit_frag.clone() }
 
-    /// Shader for rects. `plain_vert` + `plain_frag`.
+    /// Shader for rects and lines. `plain_vert` + `plain_frag`.
     pub fn def_rect_shader() -> Shader { let reader = GRAPHICS.read().unwrap(); reader.default_shaders.def_rect_shader.clone() }
 
     /// Shader for textured rects. `uv_vert` + `tex_frag`.
@@ -144,6 +145,7 @@ impl DefaultShaders {
 }
 
 pub struct DefaultMaterials {
+    def_line_material: Material,
     def_rect_material: Material,
     def_tex_material: Material,
     def_ellipse_material: Material,
@@ -153,20 +155,22 @@ pub struct DefaultMaterials {
 impl DefaultMaterials {
     const fn invalid() -> Self {
         return Self {
-            def_rect_material: Material::invalid(), def_tex_material: Material::invalid(), def_ellipse_material: Material::invalid(), def_blit_material: Material::invalid()
+            def_rect_material: Material::invalid(), def_tex_material: Material::invalid(), def_ellipse_material: Material::invalid(), def_blit_material: Material::invalid(), def_line_material: Material::invalid(),
         };
     }
 
     fn new(default_shaders: &DefaultShaders) -> Self{
+        let def_line_material = Material::new(&default_shaders.def_rect_shader, &[]);
         let def_rect_material = Material::new(&default_shaders.def_rect_shader, &[]);
         let def_tex_material = Material::new(&default_shaders.def_tex_shader, &[]);
         let def_ellipse_material = Material::new(&default_shaders.def_ellipse_shader, &[]);
         let def_blit_material = Material::new(&default_shaders.def_blit_shader, &[]);
 
-        return Self { def_rect_material, def_tex_material, def_ellipse_material, def_blit_material };
+        return Self { def_rect_material, def_tex_material, def_ellipse_material, def_blit_material, def_line_material };
     }
 
     
+    pub fn def_line_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_line_material.clone() }
     pub fn def_rect_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_rect_material.clone() }
     pub fn def_tex_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_tex_material.clone() }
     pub fn def_ellipse_material() -> Material { let reader = GRAPHICS.read().unwrap(); reader.default_materials.def_ellipse_material.clone() }
@@ -262,6 +266,7 @@ pub struct Graphics {
     default_shaders: DefaultShaders,
     default_materials: DefaultMaterials,
 
+    line_material: Option<Material>,
     rect_material: Option<Material>,
     tex_material: Option<Material>,
     ellipse_material: Option<Material>,
@@ -274,7 +279,7 @@ pub struct Graphics {
 
 impl Graphics {
     const fn new() -> Self {
-        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_data: DEFAULT_CAM_DATA, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET, pivot: Vector2::ZERO };
+        return Self { scheduled_cam_data: DEFAULT_CAM_DATA, curr_cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, default_shaders: DefaultShaders::invalid(), rect_material: None, tex_material: None, ellipse_material: None, custom_material: None, blending: BlendingMode::AlphaMix, clear_col: Color4::BLACK, curr_cam_data: DEFAULT_CAM_DATA, default_materials: DefaultMaterials::invalid(), render_target: DEFAULT_RENDER_TARGET, pivot: Vector2::ZERO, line_material: None };
     }
 
     pub(crate) fn init() {
@@ -468,6 +473,36 @@ impl Graphics {
             b_writer.send(target, state, vert_data, &tris);
         }
     }
+    
+
+
+    // |>-<   Line Drawing   >-<| //
+
+    /// Draws a line with the desired color.
+    pub fn draw_line(from: Vector2, to: Vector2, color: Color4) {
+        Self::draw_line_ext(from, to, [color; 2])
+    }
+
+    const LINE_TRIS: [u32; 2] = [0, 1];
+
+    /// Draws a line with the desired colors. The first color is the start color, and the last is the end color.
+    pub fn draw_line_ext(mut from: Vector2, mut to: Vector2, colors: [Color4; 2]) {
+        #[repr(C)]
+        struct Vert(Vector2, Color4);
+
+        from.1 = -from.1;
+        to.1 = -to.1;
+
+        let vert_data = [Vert(from, colors[0]), Vert(to, colors[1])];
+
+        let vert_data = convert_vert_data(&vert_data);
+
+        let reader = GRAPHICS.read().unwrap();
+        let state = reader.gen_ref_state(Mode::Line, &[2, 4], &[]);
+        let target = reader.render_target;
+
+        BATCH_DATA.write().as_mut().unwrap().as_mut().unwrap().send(target, state, vert_data, &Self::LINE_TRIS);
+    }
 
 
     /// Draw a custom mesh. Prone to not behaving. Not affected by pivot.
@@ -503,6 +538,7 @@ impl Graphics {
         let mut writer = GRAPHICS.write().unwrap();
         match mode {
             Mode::Unset => unreachable!(),
+            Mode::Line => writer.line_material = material,
             Mode::Rect => writer.rect_material = material,
             Mode::Textured => writer.tex_material = material,
             Mode::Ellipse => writer.ellipse_material = material,
@@ -601,6 +637,7 @@ impl Graphics {
         let reader = GRAPHICS.read().unwrap();
         match mode {
             Mode::Unset => None,
+            Mode::Line => Some(reader.line_material.clone().unwrap_or(reader.default_materials.def_line_material.clone())),
             Mode::Rect => Some(reader.rect_material.clone().unwrap_or(reader.default_materials.def_rect_material.clone())),
             Mode::Textured => Some(reader.tex_material.clone().unwrap_or(reader.default_materials.def_tex_material.clone())),
             Mode::Ellipse => Some(reader.ellipse_material.clone().unwrap_or(reader.default_materials.def_ellipse_material.clone())),
@@ -654,6 +691,7 @@ impl Graphics {
             attribs,
             textures,
             blending: self.get_blending(),
+            is_line: matches!(mode, Mode::Line),
         };
     }
 }
