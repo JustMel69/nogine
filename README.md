@@ -1,7 +1,7 @@
 # About
 **Nogine** is a 2D game development framework made in pure Rust that aims to be lightweight in terms of dependencies. For the moment, the project still compiles about 112 dependencies, but the aim is to reduce this number as much as possible without losing on functionality.<br>
 
-To learn more about Nogine, check out the [Nogine Book](notactuallyalinklmao).
+To learn more about Nogine, check out the [Nogine Book](https://justmel69.github.io/noginebook/introduction.html).
 
 # Features
 ## Graphics
