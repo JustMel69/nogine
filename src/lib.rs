@@ -34,6 +34,8 @@ macro_rules! gl_call {
     };
 }
 
+use std::fmt::Display;
+
 pub(crate) use gl_call;
 
 #[cfg(feature = "gl_debug")]
@@ -64,6 +66,13 @@ unsafe fn gl_print_err(print_metadata: &str) {
     }
 }
 
-pub fn version() -> &'static str {
-    return "v0.3.1";
+pub struct Version { pub major: u32, pub minor: u32, pub patch: u32 }
+impl Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "v{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
+pub fn version() -> Version {
+    return Version { major: 0, minor: 3, patch: 2 };
 }
