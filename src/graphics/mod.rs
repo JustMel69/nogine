@@ -667,7 +667,7 @@ impl Graphics {
             }
         }
 
-        let render_data = SceneRenderData { products, cam_mat: &reader.curr_cam_mat, clear_col: reader.clear_col };
+        let render_data = SceneRenderData { products, clear_col: reader.clear_col };
         let mut screen_rt = RenderTexture::to_screen(screen_res);
         let mut render_stats = RenderStats {
             draw_calls: 0,
@@ -702,6 +702,7 @@ impl Graphics {
             textures,
             blending: self.get_blending(),
             is_line: matches!(mode, Mode::Line),
+            camera: &self.curr_cam_mat,
         };
     }
 }

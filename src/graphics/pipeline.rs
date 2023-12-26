@@ -1,4 +1,4 @@
-use crate::{math::Matrix3x3, color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}, assert_expr};
+use crate::{color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}, assert_expr};
 
 use super::{gl_call, batch::BatchProduct, RenderStats, texture::TextureFiltering, BlendingMode, material::Material};
 
@@ -88,7 +88,7 @@ impl RenderTexture {
 
         if let Some(products) = scene_data.products[target as usize] {
             for b in products {
-                b.render(scene_data.cam_mat);
+                b.render();
             }
             stats.draw_calls += products.len();
             stats.batch_draw_calls += products.len();
@@ -198,7 +198,6 @@ impl Drop for RenderTexture {
 
 pub struct SceneRenderData<'a> {
     pub(super) products: [Option<&'a [BatchProduct]>; 256],
-    pub(super) cam_mat: &'a Matrix3x3,
     pub(super) clear_col: Color4,
 }
 

@@ -9,6 +9,7 @@ pub struct RefBatchState<'a> {
     pub attribs: &'a [usize],
     pub textures: &'a [&'a Texture],
     pub blending: BlendingMode,
+    pub camera: &'a Matrix3x3,
     pub is_line: bool,
 }
 
@@ -19,6 +20,7 @@ impl<'a> Into<BatchState> for RefBatchState<'a> {
             self.attribs.into(),
             self.textures.iter().map(|x| x.clone_core()).collect(),
             self.blending,
+            self.camera.clone(),
             self.is_line
         );
     }
@@ -30,12 +32,13 @@ pub struct BatchState {
     attribs: Box<[usize]>,
     textures: Box<[Arc<TextureCore>]>,
     blending: BlendingMode,
+    camera: Matrix3x3,
     is_line: bool,
 }
 
 impl BatchState {
-    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode, is_line: bool) -> Self {
-        return Self { material, attribs, textures, blending, is_line };
+    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode, camera: Matrix3x3, is_line: bool) -> Self {
+        return Self { material, attribs, textures, blending, is_line, camera };
     }
 }
 
@@ -76,6 +79,7 @@ impl BatchMesh {
             self.state.blending == state.blending &&
             self.state.material == state.material &&
             self.state.is_line == state.is_line &&
+            &self.state.camera == state.camera &&
             self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| x.core()));
     }
 }
@@ -91,7 +95,7 @@ pub struct BatchProduct {
 }
 
 impl BatchProduct {
-    pub fn render(&self, cam: &Matrix3x3) {
+    pub fn render(&self) {
         self.vao.bind();
         self.vbo.bind();
         self.ebo.bind();
@@ -106,7 +110,7 @@ impl BatchProduct {
 
         let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.material.shader().id(), b"mvm\0".as_ptr() as *const i8));
         assert_expr!(tf_mat_address != -1, "Can't find 'mvm' uniform in shader.");
-        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
+        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, self.state.camera.ptr()));
 
         self.state.blending.apply();
 
