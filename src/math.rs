@@ -181,7 +181,7 @@ impl Display for Vector2 {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Matrix3x3 {
     rows: [[f32; 3]; 3],
 }
