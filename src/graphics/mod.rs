@@ -2,7 +2,7 @@ use std::{sync::RwLock, f32::consts::PI};
 
 use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, Res, log_info, unwrap_res, window::Window, assert_expr};
 
-use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, batch::{BatchMesh, BatchProduct}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture, DEFAULT_RENDER_TARGET}, material::Material};
+use self::{shader::{Shader, SubShader, SubShaderType, ShaderError}, texture::{Texture, Sprite}, pipeline::{RenderPipeline, SceneRenderData, RenderTexture, DEFAULT_RENDER_TARGET}, material::Material, batch::BatchData};
 
 use self::batch::RefBatchState;
 
@@ -178,82 +178,6 @@ impl DefaultMaterials {
 }
 
 
-struct TargetBatchData {
-    curr_batch: Option<BatchMesh>,
-    ready_batches: Vec<BatchProduct>,
-    render_batches: Vec<BatchProduct>,
-}
-
-impl TargetBatchData {
-    const fn new() -> Self {
-        return Self { curr_batch: None, ready_batches: Vec::new(), render_batches: Vec::new() }
-    }
-}
-
-struct BatchData {
-    targets: [Option<TargetBatchData>; 256],
-}
-
-impl BatchData {
-    fn new() -> Self {
-        return Self {
-            targets: std::array::from_fn(|_| None),
-        }
-    }
-
-    fn send(&mut self, target_id: u8, state: RefBatchState<'_>, verts: &[f32], tris: &[u32]) {
-        self.check_state(target_id, &state);
-
-        let target = self.realize_target(target_id);
-        
-        if target.curr_batch.is_none() {
-            target.curr_batch = Some(BatchMesh::new(state.into()));
-        }
-
-        target.curr_batch.as_mut().unwrap().push(verts, tris);
-
-    }
-
-    fn check_state(&mut self, target_id: u8, state: &RefBatchState<'_>) {
-        if let Some(target) = &mut self.targets[target_id as usize] {
-            if target.curr_batch.is_none() {
-                return;
-            }
-            
-            if !target.curr_batch.as_ref().unwrap().is_of_state(&state) {
-                self.finalize_batch(target_id);
-            }
-        }
-    }
-
-    fn finalize_batch(&mut self, target_id: u8) {
-        if let Some(target) = &mut self.targets[target_id as usize] {    
-            let mut batch: Option<BatchMesh> = None;
-            std::mem::swap(&mut batch, &mut target.curr_batch);
-            
-            if let Some(x) = batch {
-                let product = x.consume();
-                target.ready_batches.push(product);
-            }
-        }
-    }
-
-    fn swap_batch_buffers(&mut self, target_id: u8) {
-        if let Some(target) = &mut self.targets[target_id as usize] {
-            std::mem::swap(&mut target.ready_batches, &mut target.render_batches);
-            target.ready_batches.clear();
-        }
-    }
-
-    fn realize_target(&mut self, target: u8) -> &mut TargetBatchData {
-        if self.targets[target as usize].is_none() {
-            self.targets[target as usize] = Some(TargetBatchData::new());
-        }
-
-        return self.targets[target as usize].as_mut().unwrap();
-    }
-}
-
 /// Main struct for drawing.
 pub struct Graphics {
     scheduled_cam_data: CamData,
@@ -291,7 +215,7 @@ impl Graphics {
 
         {
             let mut writer = BATCH_DATA.write().unwrap();
-            *writer = Some(BatchData::new());
+            *writer = Some(batch::BatchData::new());
         }
         
         gl_call!(gl::Enable(gl::BLEND));
@@ -336,7 +260,7 @@ impl Graphics {
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
         let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), colors[0]), Vert(&tf_mat * (Vector2::UP - pivot), colors[1]), Vert(&tf_mat * (Vector2::ONE - pivot), colors[2]), Vert(&tf_mat * (Vector2::RIGHT - pivot), colors[3])];
 
-        let vert_data = convert_vert_data(&vert_data);
+        let vert_data = internal::convert_vert_data(&vert_data);
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Rect, &[2, 4], &[]);
@@ -381,7 +305,7 @@ impl Graphics {
         let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), colors[0], uvs.lu()), Vert(&tf_mat * (Vector2::UP - pivot), colors[1], uvs.ld()), Vert(&tf_mat * (Vector2::ONE - pivot), colors[2], uvs.rd()), Vert(&tf_mat * (Vector2::RIGHT - pivot), colors[3], uvs.ru())];
 
         let textures = &[tex];
-        let vert_data = convert_vert_data(&vert_data);
+        let vert_data = internal::convert_vert_data(&vert_data);
         
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Textured, &[2, 4, 2], textures);
@@ -411,7 +335,7 @@ impl Graphics {
         let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
         let vert_data = [Vert(&tf_mat * (Vector2::ZERO - pivot), color, Vector2::UP), Vert(&tf_mat * (Vector2::UP - pivot), color, Vector2::ZERO), Vert(&tf_mat * (Vector2::ONE - pivot), color, Vector2::RIGHT), Vert(&tf_mat * (Vector2::RIGHT - pivot), color, Vector2::ONE)];
 
-        let vert_data = convert_vert_data(&vert_data);
+        let vert_data = internal::convert_vert_data(&vert_data);
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Ellipse, &[2, 4, 2], &[]);
@@ -460,7 +384,7 @@ impl Graphics {
             tris.extend_from_slice(&[0, i, j])
         }
         
-        let vert_data = convert_vert_data(&verts);
+        let vert_data = internal::convert_vert_data(&verts);
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Rect, &[2, 4], &[]);
@@ -495,7 +419,7 @@ impl Graphics {
 
         let vert_data = [Vert(from, colors[0]), Vert(to, colors[1])];
 
-        let vert_data = convert_vert_data(&vert_data);
+        let vert_data = internal::convert_vert_data(&vert_data);
 
         let reader = GRAPHICS.read().unwrap();
         let state = reader.gen_ref_state(Mode::Line, &[2, 4], &[]);
@@ -728,12 +652,6 @@ impl BlendingMode {
 }
 
 
-fn convert_vert_data<T>(src: &[T]) -> &[f32] {
-    let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
-    return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
-}
-
-
 
 #[derive(Debug)]
 pub struct RenderStats {
@@ -756,5 +674,12 @@ impl RenderStats {
     /// Returns the number of draw calls performed on render textures.
     pub fn rt_draw_calls(&self) -> usize {
         self.rt_draw_calls
+    }
+}
+
+mod internal {
+    pub fn convert_vert_data<T>(src: &[T]) -> &[f32] {
+        let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
+        return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
     }
 }

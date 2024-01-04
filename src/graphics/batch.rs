@@ -122,3 +122,80 @@ impl BatchProduct {
         ));
     }
 }
+
+
+pub(super) struct TargetBatchData {
+    pub curr_batch: Option<BatchMesh>,
+    pub ready_batches: Vec<BatchProduct>,
+    pub render_batches: Vec<BatchProduct>,
+}
+
+impl TargetBatchData {
+    const fn new() -> Self {
+        return Self { curr_batch: None, ready_batches: Vec::new(), render_batches: Vec::new() }
+    }
+}
+
+pub(super) struct BatchData {
+    pub targets: [Option<TargetBatchData>; 256],
+}
+
+impl BatchData {
+    pub fn new() -> Self {
+        return Self {
+            targets: std::array::from_fn(|_| None),
+        }
+    }
+
+    pub fn send(&mut self, target_id: u8, state: RefBatchState<'_>, verts: &[f32], tris: &[u32]) {
+        self.check_state(target_id, &state);
+
+        let target = self.realize_target(target_id);
+        
+        if target.curr_batch.is_none() {
+            target.curr_batch = Some(BatchMesh::new(state.into()));
+        }
+
+        target.curr_batch.as_mut().unwrap().push(verts, tris);
+
+    }
+
+    pub fn check_state(&mut self, target_id: u8, state: &RefBatchState<'_>) {
+        if let Some(target) = &mut self.targets[target_id as usize] {
+            if target.curr_batch.is_none() {
+                return;
+            }
+            
+            if !target.curr_batch.as_ref().unwrap().is_of_state(&state) {
+                self.finalize_batch(target_id);
+            }
+        }
+    }
+
+    pub fn finalize_batch(&mut self, target_id: u8) {
+        if let Some(target) = &mut self.targets[target_id as usize] {    
+            let mut batch: Option<BatchMesh> = None;
+            std::mem::swap(&mut batch, &mut target.curr_batch);
+            
+            if let Some(x) = batch {
+                let product = x.consume();
+                target.ready_batches.push(product);
+            }
+        }
+    }
+
+    pub fn swap_batch_buffers(&mut self, target_id: u8) {
+        if let Some(target) = &mut self.targets[target_id as usize] {
+            std::mem::swap(&mut target.ready_batches, &mut target.render_batches);
+            target.ready_batches.clear();
+        }
+    }
+
+    fn realize_target(&mut self, target: u8) -> &mut TargetBatchData {
+        if self.targets[target as usize].is_none() {
+            self.targets[target as usize] = Some(TargetBatchData::new());
+        }
+
+        return self.targets[target as usize].as_mut().unwrap();
+    }
+}
