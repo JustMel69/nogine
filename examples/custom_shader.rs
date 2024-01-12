@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, shader::{Shader, SubShader, SubShaderType}, DefaultShaders, Mode, uniforms::Uniform, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
+use nogine::{graphics::{Graphics, shader::{Shader, SubShader, SubShaderType}, defaults::DefaultShaders, Mode, uniforms::Uniform, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
 
 const CUSTOM_VERT: &str = r#"
 #version 330 core
