@@ -1,6 +1,6 @@
-use crate::{color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}, assert_expr};
+use crate::{color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}, assert_expr, math::Matrix3x3};
 
-use super::{gl_call, batch::BatchProduct, RenderStats, texture::TextureFiltering, BlendingMode, material::Material};
+use super::{gl_call, batch::TargetBatchData, RenderStats, texture::{TextureFiltering, Texture}, BlendingMode, material::Material};
 
 pub const DEFAULT_RENDER_TARGET: u8 = 0;
 
@@ -86,12 +86,12 @@ impl RenderTexture {
         
         RenderTexture::bind(self);
 
-        if let Some(products) = scene_data.products[target as usize] {
-            for b in products {
-                b.render();
+        if let Some(products) = scene_data.products.iter().find(|x| x.0 == target).map(|x| &x.1) {
+            for b in &products.render_batches {
+                b.render(scene_data.cam);
             }
-            stats.draw_calls += products.len();
-            stats.batch_draw_calls += products.len();
+            stats.draw_calls += products.render_batches.len();
+            stats.batch_draw_calls += products.render_batches.len();
         }
 
         RenderTexture::unbind();
@@ -182,6 +182,15 @@ impl RenderTexture {
     pub fn res(&self) -> (u32, u32) {
         self.res
     }
+
+    pub fn statify(mut self) -> Texture {
+        assert_expr!(self.fbo != 0, "Can't statify a render texture to the screen.");
+
+        let texture = unsafe { Texture::from_raw_parts(self.col_tex, self.res) };
+        self.col_tex = 0; // Change this so the gl texture is not freed when RenderTexture is dropped
+
+        return texture;
+    }
 }
 
 impl Drop for RenderTexture {
@@ -197,8 +206,9 @@ impl Drop for RenderTexture {
 }
 
 pub struct SceneRenderData<'a> {
-    pub(super) products: [Option<&'a [BatchProduct]>; 256],
+    pub(super) products: &'a [(u8, TargetBatchData)],
     pub(super) clear_col: Color4,
+    pub(super) cam: &'a Matrix3x3
 }
 
 impl<'a> SceneRenderData<'a> {
