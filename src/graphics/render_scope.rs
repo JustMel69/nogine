@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{math::{Matrix3x3, Vector2, Rect}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
+use crate::{math::{Matrix3x3, Vector2, Rect, rotrect::RotRect}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
 
 use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA};
 
@@ -67,7 +67,7 @@ impl RenderScope {
 
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
-    pub(super) fn draw_rect(&mut self, pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
+    pub(super) fn draw_rect(&mut self, pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> RotRect {
         #[repr(C)]
         struct Vert(Vector2, Color4);
 
@@ -77,11 +77,13 @@ impl RenderScope {
         let vert_data = internal::convert_vert_data(&vert_data);
 
         let state = self.gen_ref_state(Mode::Rect, &[2, 4], &[]);
-
         self.batch_data.send(self.render_target, state, vert_data, &Self::RECT_TRIS);
+
+        
+        return RotRect { center: pos - self.pivot.scale(extents), extents, rot };
     }
 
-    pub(super) fn draw_texture(&mut self, pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
+    pub(super) fn draw_texture(&mut self, pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> RotRect {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
@@ -95,11 +97,13 @@ impl RenderScope {
         let vert_data = internal::convert_vert_data(&vert_data);
         
         let state = self.gen_ref_state(Mode::Textured, &[2, 4, 2], textures);
-        
         self.batch_data.send(self.render_target, state, vert_data, &Self::RECT_TRIS);
+
+
+        return RotRect { center: pos - self.pivot.scale(extents), extents, rot };
     }
 
-    pub(super) fn draw_ellipse(&mut self, center: Vector2, half_extents: Vector2, rot: f32, color: Color4) {
+    pub(super) fn draw_ellipse(&mut self, center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> RotRect {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
@@ -111,6 +115,9 @@ impl RenderScope {
         let state = self.gen_ref_state(Mode::Ellipse, &[2, 4, 2], &[]);
         
         self.batch_data.send(self.render_target, state, vert_data, &Self::RECT_TRIS);
+
+
+        return RotRect { center, extents: half_extents * 2.0, rot };
     }
 
     pub(super) fn draw_polygon(&mut self, center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {

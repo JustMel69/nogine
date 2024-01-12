@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use crate::{math::{Vector2, Matrix3x3, Rect}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
+use crate::{math::{Vector2, Matrix3x3, Rect, rotrect::RotRect}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
 use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope};
 
@@ -98,7 +98,7 @@ impl Graphics {
     // |>-<   Rect Drawing   >-<| //
     
     /// Draws a non rotated rect.
-    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) {
+    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) -> RotRect {
         Self::draw_rect_full(pos, extents, 0.0, [color; 4])
     }
     
@@ -106,8 +106,8 @@ impl Graphics {
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) {
-        GRAPHICS.write().unwrap().active_scope.draw_rect(pos, extents, rot, colors);
+    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> RotRect {
+        GRAPHICS.write().unwrap().active_scope.draw_rect(pos, extents, rot, colors)
     }
 
 
@@ -116,14 +116,14 @@ impl Graphics {
 
     /// Draws a rotated texture.<br>
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) {
+    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) -> RotRect {
         Self::draw_texture_full(pos, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
     /// Draws a rotated sprite.<br>
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) {
-        Self::draw_texture_full(pos, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex());
+    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) -> RotRect {
+        Self::draw_texture_full(pos, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex())
     }
 
     /// Draws a rotated texture with control over the color of each vert and the uv rect utilized.<br>
@@ -131,22 +131,22 @@ impl Graphics {
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) {
-        GRAPHICS.write().unwrap().active_scope.draw_texture(pos, scale, rot, uvs, colors, tex);
+    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> RotRect {
+        GRAPHICS.write().unwrap().active_scope.draw_texture(pos, scale, rot, uvs, colors, tex)
     }
 
 
     // |>-<   Ellipse Drawing   >-<| //
 
     /// Draws a circle.
-    pub fn draw_circle(center: Vector2, radius: f32, color: Color4) {
-        Self::draw_ellipse(center, Vector2(radius, radius), 0.0, color);
+    pub fn draw_circle(center: Vector2, radius: f32, color: Color4) -> RotRect {
+        Self::draw_ellipse(center, Vector2(radius, radius), 0.0, color)
     }
 
     /// Draws a rotated ellipse.
     /// - The ellipse is rotated around the center.
-    pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) {
-        GRAPHICS.write().unwrap().active_scope.draw_ellipse(center, half_extents, rot, color);
+    pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> RotRect {
+        GRAPHICS.write().unwrap().active_scope.draw_ellipse(center, half_extents, rot, color)
     }
 
 
