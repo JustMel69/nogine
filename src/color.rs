@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 pub trait Color {
     const RED: Self;
     const ORANGE: Self;
@@ -65,4 +67,12 @@ impl Color for Color4 {
     const GRAY: Self = Color4(0.5, 0.5, 0.5, 1.0);
     const DARK_GRAY: Self = Color4(0.25, 0.25, 0.25, 1.0);
     const BLACK: Self = Color4(0.0, 0.0, 0.0, 1.0);
+}
+
+impl Mul for Color4 {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        return Self(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2, self.3 * rhs.3);
+    }
 }
