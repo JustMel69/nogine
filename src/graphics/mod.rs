@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use crate::{math::{Vector2, Matrix3x3, Rect, rotrect::RotRect}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
+use crate::{math::{Vector2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
 use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope};
 
@@ -98,7 +98,7 @@ impl Graphics {
     // |>-<   Rect Drawing   >-<| //
     
     /// Draws a non rotated rect.
-    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) -> RotRect {
+    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) -> Quad {
         Self::draw_rect_full(pos, extents, 0.0, [color; 4])
     }
     
@@ -106,7 +106,7 @@ impl Graphics {
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> RotRect {
+    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> Quad {
         GRAPHICS.write().unwrap().active_scope.draw_rect(pos, extents, rot, colors)
     }
 
@@ -116,13 +116,13 @@ impl Graphics {
 
     /// Draws a rotated texture.<br>
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) -> RotRect {
+    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) -> Quad {
         Self::draw_texture_full(pos, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
     /// Draws a rotated sprite.<br>
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) -> RotRect {
+    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) -> Quad {
         Self::draw_texture_full(pos, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex())
     }
 
@@ -131,7 +131,7 @@ impl Graphics {
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> RotRect {
+    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> Quad {
         GRAPHICS.write().unwrap().active_scope.draw_texture(pos, scale, rot, uvs, colors, tex)
     }
 
@@ -139,13 +139,13 @@ impl Graphics {
     // |>-<   Ellipse Drawing   >-<| //
 
     /// Draws a circle.
-    pub fn draw_circle(center: Vector2, radius: f32, color: Color4) -> RotRect {
+    pub fn draw_circle(center: Vector2, radius: f32, color: Color4) -> Quad {
         Self::draw_ellipse(center, Vector2(radius, radius), 0.0, color)
     }
 
     /// Draws a rotated ellipse.
     /// - The ellipse is rotated around the center.
-    pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> RotRect {
+    pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> Quad {
         GRAPHICS.write().unwrap().active_scope.draw_ellipse(center, half_extents, rot, color)
     }
 
@@ -183,6 +183,16 @@ impl Graphics {
     /// Draw a custom mesh. Prone to not behaving. Not affected by pivot.
     pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         GRAPHICS.write().unwrap().active_scope.draw_custom_mesh(pos, rot, scale, vert_data, tri_data, vert_attribs, textures);
+    }
+
+    /// Draws a quad
+    pub fn draw_debug_quad(quad: Quad, color: Color4) {
+        let mut writer = GRAPHICS.write().unwrap();
+
+        writer.active_scope.draw_line(quad.ld, quad.lu, [color; 2]);
+        writer.active_scope.draw_line(quad.lu, quad.ru, [color; 2]);
+        writer.active_scope.draw_line(quad.ru, quad.rd, [color; 2]);
+        writer.active_scope.draw_line(quad.rd, quad.ld, [color; 2]);
     }
 
     /// Sets a custom material for a certain rendering mode.<br>

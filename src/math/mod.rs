@@ -3,7 +3,7 @@ use std::ops::{Add, Mul};
 pub mod vector2;
 pub mod mat3x3;
 pub mod rect;
-pub mod rotrect;
+pub mod quad;
 
 // reexports to not break literally everything
 pub use vector2::Vector2;

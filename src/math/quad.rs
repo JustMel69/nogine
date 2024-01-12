@@ -1,6 +1,7 @@
 use super::Vector2;
 
 /// Just a geometrical quad.
+#[derive(Debug, Clone, Copy)]
 pub struct Quad {
     pub ld: Vector2,
     pub rd: Vector2,

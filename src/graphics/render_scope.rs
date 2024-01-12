@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{math::{Matrix3x3, Vector2, Rect, rotrect::RotRect}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
+use crate::{math::{Matrix3x3, Vector2, Rect, quad::Quad}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
 
 use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA};
 
@@ -67,23 +67,23 @@ impl RenderScope {
 
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
-    pub(super) fn draw_rect(&mut self, pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> RotRect {
+    pub(super) fn draw_rect(&mut self, pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> Quad {
         #[repr(C)]
         struct Vert(Vector2, Color4);
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
-        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - self.pivot), colors[0]), Vert(&tf_mat * (Vector2::UP - self.pivot), colors[1]), Vert(&tf_mat * (Vector2::ONE - self.pivot), colors[2]), Vert(&tf_mat * (Vector2::RIGHT - self.pivot), colors[3])];
-
+        let quad = internal::make_quad(self.pivot, &tf_mat);
+        let vert_data = [Vert(quad.ld, colors[0]), Vert(quad.lu, colors[1]), Vert(quad.ru, colors[2]), Vert(quad.rd, colors[3])];
+        
         let vert_data = internal::convert_vert_data(&vert_data);
 
         let state = self.gen_ref_state(Mode::Rect, &[2, 4], &[]);
         self.batch_data.send(self.render_target, state, vert_data, &Self::RECT_TRIS);
 
-        
-        return RotRect { center: pos - self.pivot.scale(extents), extents, rot };
+        return internal::fix_quad(quad);
     }
 
-    pub(super) fn draw_texture(&mut self, pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> RotRect {
+    pub(super) fn draw_texture(&mut self, pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> Quad {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
@@ -91,7 +91,8 @@ impl RenderScope {
         let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / self.pixels_per_unit).scale(scale).scale(uvs.size());
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
-        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - self.pivot), colors[0], uvs.lu()), Vert(&tf_mat * (Vector2::UP - self.pivot), colors[1], uvs.ld()), Vert(&tf_mat * (Vector2::ONE - self.pivot), colors[2], uvs.rd()), Vert(&tf_mat * (Vector2::RIGHT - self.pivot), colors[3], uvs.ru())];
+        let quad = internal::make_quad(self.pivot, &tf_mat);
+        let vert_data = [Vert(quad.ld, colors[0], uvs.lu()), Vert(quad.lu, colors[1], uvs.ld()), Vert(quad.ru, colors[2], uvs.rd()), Vert(quad.rd, colors[3], uvs.ru())];
 
         let textures = &[tex];
         let vert_data = internal::convert_vert_data(&vert_data);
@@ -99,25 +100,23 @@ impl RenderScope {
         let state = self.gen_ref_state(Mode::Textured, &[2, 4, 2], textures);
         self.batch_data.send(self.render_target, state, vert_data, &Self::RECT_TRIS);
 
-
-        return RotRect { center: pos - self.pivot.scale(extents), extents, rot };
+        return internal::fix_quad(quad);
     }
 
-    pub(super) fn draw_ellipse(&mut self, center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> RotRect {
+    pub(super) fn draw_ellipse(&mut self, center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> Quad {
         #[repr(C)]
         struct Vert(Vector2, Color4, Vector2);
 
         let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
-        let vert_data = [Vert(&tf_mat * (Vector2::ZERO - self.pivot), color, Vector2::UP), Vert(&tf_mat * (Vector2::UP - self.pivot), color, Vector2::ZERO), Vert(&tf_mat * (Vector2::ONE - self.pivot), color, Vector2::RIGHT), Vert(&tf_mat * (Vector2::RIGHT - self.pivot), color, Vector2::ONE)];
+        let quad = internal::make_quad(self.pivot, &tf_mat);
+        let vert_data = [Vert(quad.ld, color, Vector2::UP), Vert(quad.lu, color, Vector2::ZERO), Vert(quad.ru, color, Vector2::RIGHT), Vert(quad.rd, color, Vector2::ONE)];
 
         let vert_data = internal::convert_vert_data(&vert_data);
 
         let state = self.gen_ref_state(Mode::Ellipse, &[2, 4, 2], &[]);
-        
         self.batch_data.send(self.render_target, state, vert_data, &Self::RECT_TRIS);
 
-
-        return RotRect { center, extents: half_extents * 2.0, rot };
+        return internal::fix_quad(quad);
     }
 
     pub(super) fn draw_polygon(&mut self, center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {
@@ -245,8 +244,28 @@ impl RenderScope {
 }
 
 mod internal {
+    use crate::math::{quad::Quad, Matrix3x3, Vector2};
+
     pub fn convert_vert_data<T>(src: &[T]) -> &[f32] {
         let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
         return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
+    }
+
+    pub fn make_quad(pivot: Vector2, tf_mat: &Matrix3x3) -> Quad {
+        return Quad {
+            ld: tf_mat * (Vector2::ZERO - pivot),
+            lu: tf_mat * (Vector2::UP - pivot),
+            ru: tf_mat * (Vector2::ONE - pivot),
+            rd: tf_mat * (Vector2::RIGHT - pivot),
+        };
+    }
+
+    pub fn fix_quad(quad: Quad) -> Quad {
+        return Quad {
+            ld: Vector2(quad.ld.0, -quad.ld.1),
+            rd: Vector2(quad.rd.0, -quad.rd.1),
+            lu: Vector2(quad.lu.0, -quad.lu.1),
+            ru: Vector2(quad.ru.0, -quad.ru.1),
+        }
     }
 }
