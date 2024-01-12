@@ -1,26 +1,24 @@
 use std::sync::Arc;
 
-use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3, assert_expr};
+use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3, assert_expr, utils::ptr_slice::PtrSlice};
 
 use super::{buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode, material::Material};
 
-pub struct RefBatchState<'a> {
+pub struct RefBatchState {
     pub material: Material,
-    pub attribs: &'a [usize],
-    pub textures: &'a [&'a Texture],
+    pub attribs: PtrSlice<usize>,
+    pub textures: PtrSlice<*const Texture>,
     pub blending: BlendingMode,
-    pub camera: &'a Matrix3x3,
     pub is_line: bool,
 }
 
-impl<'a> Into<BatchState> for RefBatchState<'a> {
+impl Into<BatchState> for RefBatchState {
     fn into(self) -> BatchState {
         return BatchState::new(
             self.material,
-            self.attribs.into(),
-            self.textures.iter().map(|x| x.clone_core()).collect(),
+            self.attribs.as_slice().into(),
+            self.textures.iter().map(|&x| unsafe { x.as_ref().unwrap_unchecked() }.clone_core()).collect(),
             self.blending,
-            self.camera.clone(),
             self.is_line
         );
     }
@@ -32,13 +30,12 @@ pub struct BatchState {
     attribs: Box<[usize]>,
     textures: Box<[Arc<TextureCore>]>,
     blending: BlendingMode,
-    camera: Matrix3x3,
     is_line: bool,
 }
 
 impl BatchState {
-    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode, camera: Matrix3x3, is_line: bool) -> Self {
-        return Self { material, attribs, textures, blending, is_line, camera };
+    fn new<'a>(material: Material, attribs: Box<[usize]>, textures: Box<[Arc<TextureCore>]>, blending: BlendingMode, is_line: bool) -> Self {
+        return Self { material, attribs, textures, blending, is_line };
     }
 }
 
@@ -79,8 +76,7 @@ impl BatchMesh {
             self.state.blending == state.blending &&
             self.state.material == state.material &&
             self.state.is_line == state.is_line &&
-            &self.state.camera == state.camera &&
-            self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| x.core()));
+            self.state.textures.iter().map(|x| x.as_ref()).eq(state.textures.iter().map(|x| unsafe { x.as_ref().unwrap_unchecked() }.core()));
     }
 }
 
@@ -95,7 +91,7 @@ pub struct BatchProduct {
 }
 
 impl BatchProduct {
-    pub fn render(&self) {
+    pub fn render(&self, cam: &Matrix3x3) {
         self.vao.bind();
         self.vbo.bind();
         self.ebo.bind();
@@ -110,7 +106,7 @@ impl BatchProduct {
 
         let tf_mat_address = gl_call!(gl::GetUniformLocation(self.state.material.shader().id(), b"mvm\0".as_ptr() as *const i8));
         assert_expr!(tf_mat_address != -1, "Can't find 'mvm' uniform in shader.");
-        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, self.state.camera.ptr()));
+        gl_call!(gl::UniformMatrix3fv(tf_mat_address, 1, gl::TRUE, cam.ptr()));
 
         self.state.blending.apply();
 
@@ -137,17 +133,17 @@ impl TargetBatchData {
 }
 
 pub(super) struct BatchData {
-    pub targets: [Option<TargetBatchData>; 256],
+    pub targets: Vec<(u8, TargetBatchData)>,
 }
 
 impl BatchData {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         return Self {
-            targets: std::array::from_fn(|_| None),
+            targets: Vec::new()
         }
     }
 
-    pub fn send(&mut self, target_id: u8, state: RefBatchState<'_>, verts: &[f32], tris: &[u32]) {
+    pub fn send(&mut self, target_id: u8, state: RefBatchState, verts: &[f32], tris: &[u32]) {
         self.check_state(target_id, &state);
 
         let target = self.realize_target(target_id);
@@ -160,8 +156,8 @@ impl BatchData {
 
     }
 
-    pub fn check_state(&mut self, target_id: u8, state: &RefBatchState<'_>) {
-        if let Some(target) = &mut self.targets[target_id as usize] {
+    pub fn check_state(&mut self, target_id: u8, state: &RefBatchState) {
+        if let Some(target) = self.get(target_id) {
             if target.curr_batch.is_none() {
                 return;
             }
@@ -173,7 +169,7 @@ impl BatchData {
     }
 
     pub fn finalize_batch(&mut self, target_id: u8) {
-        if let Some(target) = &mut self.targets[target_id as usize] {    
+        if let Some(target) = self.get_mut(target_id) {    
             let mut batch: Option<BatchMesh> = None;
             std::mem::swap(&mut batch, &mut target.curr_batch);
             
@@ -185,17 +181,33 @@ impl BatchData {
     }
 
     pub fn swap_batch_buffers(&mut self, target_id: u8) {
-        if let Some(target) = &mut self.targets[target_id as usize] {
+        if let Some(target) = self.get_mut(target_id) {
             std::mem::swap(&mut target.ready_batches, &mut target.render_batches);
             target.ready_batches.clear();
         }
     }
 
-    fn realize_target(&mut self, target: u8) -> &mut TargetBatchData {
-        if self.targets[target as usize].is_none() {
-            self.targets[target as usize] = Some(TargetBatchData::new());
+    fn realize_target(&mut self, target: u8) -> &mut TargetBatchData {        
+        if let Some(i) = self.targets.iter().position(|x| x.0 == target) {
+            return &mut self.targets[i].1;
+        } else {
+            self.targets.push((target, TargetBatchData::new()));
+            return &mut self.targets.last_mut().unwrap().1;
         }
+    }
 
-        return self.targets[target as usize].as_mut().unwrap();
+    pub fn get(&self, target: u8) -> Option<&TargetBatchData> {
+        return self.targets.iter().find(|x| x.0 == target).map(|x| &x.1);
+    }
+
+    pub fn get_mut(&mut self, target: u8) -> Option<&mut TargetBatchData> {
+        return self.targets.iter_mut().find(|x| x.0 == target).map(|x| &mut x.1);
+    }
+
+    pub fn clear(&mut self) {
+        for t in &mut self.targets {
+            t.1.curr_batch = None;
+            t.1.ready_batches.clear();
+        }
     }
 }
