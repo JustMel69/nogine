@@ -60,9 +60,16 @@ impl Vector2 {
         return Self(self.1, -self.0);
     }
 
-    /// Rotates the vector by the rotation provided in radians.
+    /// Rotates the vector by the rotation provided in radians.<br>
+    /// For rotations that need to match visuals, use `visual_rotate`
     pub fn rotate(self, rot: f32) -> Self {
         return Self(self.0 * rot.cos() + self.1 * rot.sin(), self.0 * rot.sin() - self.1 * rot.cos());
+    }
+
+    /// Rotates the vector by the specified rotation, but in a way that matches up with visual rotations.
+    pub fn visual_rotate(self, rot: f32) -> Self {
+        let rotated = self.rotate(rot);
+        return Vector2(rotated.0, -rotated.1);
     }
 
     /// Performs the dot product between two vectors.
