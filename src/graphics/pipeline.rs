@@ -77,6 +77,20 @@ impl RenderTexture {
         return Self { fbo, col_tex, res, alpha: 1.0 };
     }
 
+    pub(super) unsafe fn new_from_existing(tex: &Texture) -> Self {
+        let mut fbo = 0;
+        gl_call!(gl::GenFramebuffers(1, &mut fbo));
+        gl_call!(gl::BindFramebuffer(gl::FRAMEBUFFER, fbo));
+
+        let col_tex = tex.core().inner();
+        let res = tex.dims();
+
+        gl_call!(gl::FramebufferTexture2D(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, col_tex, 0));
+        gl_call!(gl::BindFramebuffer(gl::FRAMEBUFFER, 0));
+
+        return Self { fbo, col_tex, res, alpha: 1.0 };
+    }
+
     pub fn sized_as(rt: &RenderTexture, filtering: TextureFiltering) -> Self {
         return Self::new(rt.res, filtering);
     }
@@ -190,6 +204,10 @@ impl RenderTexture {
         self.col_tex = 0; // Change this so the gl texture is not freed when RenderTexture is dropped
 
         return texture;
+    }
+
+    pub(super) unsafe fn forget_tex(&mut self) {
+        self.col_tex = 0;
     }
 }
 
