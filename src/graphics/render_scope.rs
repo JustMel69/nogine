@@ -38,6 +38,16 @@ impl RenderScope {
         }
     }
 
+    pub const fn new() -> Self {
+        Self {
+            is_global: false,
+            scheduled_cam_data: DEFAULT_CAM_DATA, cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO,
+            line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
+            render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
+            batch_data: BatchData::new()
+        }
+    }
+
     /// Clears the rendered data
     pub fn clear(&mut self) {
         self.batch_data.clear();
@@ -55,6 +65,19 @@ impl RenderScope {
         let texture = rt.statify();
 
         return (texture, stats);
+    }
+
+    /// Renders to an already existing texture
+    pub fn rerender(&mut self, texture: &mut Texture, pipeline: Option<&dyn RenderPipeline>) -> RenderStats {
+        self.finalize_batch();
+
+        let pipeline = pipeline.unwrap_or(&DefaultRenderPipeline);
+
+        let mut rt = unsafe { RenderTexture::new_from_existing(&texture) };
+        let stats = self.render_internal(&mut rt, pipeline);
+        unsafe { rt.forget_tex() };
+
+        return stats;
     }
 
     pub fn tick(&mut self) {
