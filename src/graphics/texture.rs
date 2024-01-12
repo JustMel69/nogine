@@ -175,6 +175,10 @@ impl Texture {
         return Texture { id: Arc::new(TextureCore(id)), /*_colors: rgba_colors,*/ dims };
     }
 
+    pub(crate) unsafe fn from_raw_parts(core: u32, dims: (u32, u32)) -> Self {
+        return Self { id: Arc::new(TextureCore(core)), dims };
+    }
+
 
     pub fn dims(&self) -> (u32, u32) {
         self.dims
