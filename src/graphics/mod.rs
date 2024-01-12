@@ -93,6 +93,22 @@ impl Graphics {
         writer.active_scope.tick();
     }
 
+    pub fn with_scope<T, F: FnMut() -> T>(scope: &mut RenderScope, mut render_fn: F) -> T {
+        {
+            let mut writer = GRAPHICS.write().unwrap();
+            std::mem::swap(scope, &mut writer.active_scope); // Swap render scopes
+        }
+
+        let res = render_fn();
+
+        {
+            let mut writer = GRAPHICS.write().unwrap();
+            std::mem::swap(scope, &mut writer.active_scope); // Rever swapping
+        }
+
+        return res;
+    }
+
 
 
     // |>-<   Rect Drawing   >-<| //
