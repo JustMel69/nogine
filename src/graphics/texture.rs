@@ -68,6 +68,10 @@ impl TextureCore {
         gl_call!(gl::ActiveTexture(gl::TEXTURE0 + slot as u32));
         gl_call!(gl::BindTexture(gl::TEXTURE_2D, self.0));
     }
+
+    pub(super) fn inner(&self) -> u32 {
+        return self.0;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -147,23 +151,7 @@ impl Texture {
         gl_call!(gl::GenTextures(1, &mut id));
         gl_call!(gl::BindTexture(gl::TEXTURE_2D, id));
 
-        let wrapping = match cfg.wrapping {
-            TextureWrapping::Clamp => gl::CLAMP_TO_EDGE,
-            TextureWrapping::Repeat => gl::REPEAT,
-            TextureWrapping::Wrap => gl::MIRRORED_REPEAT,
-        };
-
-        let filtering = match cfg.filtering {
-            TextureFiltering::Closest => gl::NEAREST,
-            TextureFiltering::Linear => gl::LINEAR,
-        };
-
-        let internal_fmt = match fmt {
-            TextureFormat::R => gl::RED,
-            TextureFormat::RA => gl::RG,
-            TextureFormat::RGB => gl::RGB,
-            TextureFormat::RGBA => gl::RGBA,
-        };
+        let (wrapping, filtering, internal_fmt) = internal::wrap_filter_fmt(cfg.wrapping, cfg.filtering, fmt);
 
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filtering as i32));
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filtering as i32));
@@ -171,6 +159,25 @@ impl Texture {
         gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrapping as i32));
 
         gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba_colors.as_ptr() as *const std::ffi::c_void));
+
+        return Texture { id: Arc::new(TextureCore(id)), /*_colors: rgba_colors,*/ dims };
+    }
+
+    pub fn empty(fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
+        assert_expr!(dims.0 != 0 && dims.1 != 0, "None of the axis of the resolution can have 0 as a value.");
+        
+        let mut id = 0;
+        gl_call!(gl::GenTextures(1, &mut id));
+        gl_call!(gl::BindTexture(gl::TEXTURE_2D, id));
+
+        let (wrapping, filtering, internal_fmt) = internal::wrap_filter_fmt(cfg.wrapping, cfg.filtering, fmt);
+
+        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filtering as i32));
+        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filtering as i32));
+        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, wrapping as i32));
+        gl_call!(gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrapping as i32));
+
+        gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, std::ptr::null()));
 
         return Texture { id: Arc::new(TextureCore(id)), /*_colors: rgba_colors,*/ dims };
     }
@@ -242,5 +249,31 @@ impl SpriteAtlas {
         );
 
         return Sprite(&self.internal, uv_rect);
+    }
+}
+
+mod internal {
+    use super::{TextureWrapping, TextureFiltering, TextureFormat};
+
+    pub fn wrap_filter_fmt(wrapping: TextureWrapping, filtering: TextureFiltering, fmt: TextureFormat) -> (u32, u32, u32) {
+        let wrapping = match wrapping {
+            TextureWrapping::Clamp => gl::CLAMP_TO_EDGE,
+            TextureWrapping::Repeat => gl::REPEAT,
+            TextureWrapping::Wrap => gl::MIRRORED_REPEAT,
+        };
+
+        let filtering = match filtering {
+            TextureFiltering::Closest => gl::NEAREST,
+            TextureFiltering::Linear => gl::LINEAR,
+        };
+
+        let internal_fmt = match fmt {
+            TextureFormat::R => gl::RED,
+            TextureFormat::RA => gl::RG,
+            TextureFormat::RGB => gl::RGB,
+            TextureFormat::RGBA => gl::RGBA,
+        };
+
+        return (wrapping, filtering, internal_fmt);
     }
 }
