@@ -18,6 +18,40 @@ impl RotRect {
             point.0 > self.center.0 - half_ext.0 && point.0 < self.center.0 + half_ext.0 &&
             point.1 > self.center.1 - half_ext.1 && point.1 < self.center.1 + half_ext.1;
     }
+    
+
+    pub fn ld(&self) -> Vector2 {
+        return (-self.extents * 0.5).rotate(self.rot) + self.center;
+    }
+
+    pub fn rd(&self) -> Vector2 {
+        return Vector2(self.extents.0 * 0.5, -self.extents.1 * 0.5).rotate(self.rot) + self.center;
+    }
+
+    pub fn lu(&self) -> Vector2 {
+        return Vector2(-self.extents.0 * 0.5, self.extents.1 * 0.5).rotate(self.rot) + self.center;
+    }
+
+    pub fn ru(&self) -> Vector2 {
+        return (self.extents * 0.5).rotate(self.rot) + self.center;
+    }
+
+
+    pub fn left(&self) -> Vector2 {
+        return (-self.extents.xvec() * 0.5).rotate(self.rot) + self.center;
+    }
+
+    pub fn right(&self) -> Vector2 {
+        return (self.extents.xvec() * 0.5).rotate(self.rot) + self.center;
+    }
+
+    pub fn up(&self) -> Vector2 {
+        return (self.extents.yvec() * 0.5).rotate(self.rot) + self.center;
+    }
+
+    pub fn down(&self) -> Vector2 {
+        return (-self.extents.yvec() * 0.5).rotate(self.rot) + self.center;
+    }
 }
 
 impl From<Rect> for RotRect {
