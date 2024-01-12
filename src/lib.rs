@@ -1,4 +1,5 @@
 #![feature(const_fn_floating_point_arithmetic)]
+#![feature(const_maybe_uninit_zeroed)]
 
 pub mod window;
 pub mod input;
@@ -9,6 +10,7 @@ pub mod audio;
 pub mod utils {
     pub mod heap;
     pub mod rng;
+    pub(crate) mod ptr_slice;
 }
 pub mod logging;
 
