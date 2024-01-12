@@ -7,7 +7,6 @@ use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBat
 pub struct RenderScope {
     pub(super) is_global: bool,
 
-    pub(super) scheduled_cam_data: CamData,
     pub(super) cam_data: CamData,
     pub(super) cam_mat: Matrix3x3,
     
@@ -31,7 +30,7 @@ impl RenderScope {
     pub(super) const fn new_global() -> Self {
         Self {
             is_global: true,
-            scheduled_cam_data: DEFAULT_CAM_DATA, cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO,
+            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO,
             line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
             render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
             batch_data: BatchData::new()
@@ -41,7 +40,7 @@ impl RenderScope {
     pub const fn new() -> Self {
         Self {
             is_global: false,
-            scheduled_cam_data: DEFAULT_CAM_DATA, cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO,
+            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO,
             line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
             render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
             batch_data: BatchData::new()
@@ -79,14 +78,6 @@ impl RenderScope {
 
         return stats;
     }
-
-    pub fn tick(&mut self) {
-        let cam_data = self.scheduled_cam_data;
-
-        self.cam_data = cam_data;
-        self.cam_mat = Matrix3x3::cam_matrix(cam_data.pos, cam_data.half_size);
-    }
-
 
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
@@ -250,7 +241,8 @@ impl RenderScope {
     pub(super) fn set_camera(&mut self, cam_data: CamData) {
         assert_expr!(cam_data.half_size.0 != 0.0 && cam_data.half_size.1 != 0.0, "The size of the camera must be a vector with non-zero components.");
 
-        self.scheduled_cam_data = cam_data;
+        self.cam_data = cam_data;
+        self.cam_mat = Matrix3x3::cam_matrix(cam_data.pos, cam_data.half_size);
     }
 
     fn gen_ref_state<'a>(&'a self, mode: Mode, attribs: &'a [usize], textures: &'a [&'a Texture]) -> RefBatchState {

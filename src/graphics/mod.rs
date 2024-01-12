@@ -85,14 +85,6 @@ impl Graphics {
         log_info!("Graphics initialized.");
     }
 
-    pub(super) fn tick() {
-        // Update camera matrix
-        let mut writer = GRAPHICS.write().unwrap();
-        assert_expr!(writer.active_scope.is_global, "The global render scope must be active at the start of the frame!");
-
-        writer.active_scope.tick();
-    }
-
     pub fn with_scope<T, F: FnMut() -> T>(scope: &mut RenderScope, mut render_fn: F) -> T {
         {
             let mut writer = GRAPHICS.write().unwrap();

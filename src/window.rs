@@ -110,8 +110,6 @@ impl Window {
         let pipeline = pipeline.unwrap_or(&mut def_pipeline);
         
         let stats = Graphics::render(pipeline, self.get_size(), self);
-        
-        Graphics::tick();
         return stats;
     }
     

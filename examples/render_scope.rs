@@ -19,7 +19,6 @@ fn main() {
         
         Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
 
-        scope.tick();
         Graphics::with_scope(&mut scope, || {
             Graphics::draw_rect(Vector2(-1.55, -0.5), Vector2::ONE, Color4::CYAN);
             Graphics::draw_circle(Vector2(0.0, time.sin()), 0.5, Color4::YELLOW);
