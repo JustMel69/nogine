@@ -105,7 +105,7 @@ impl UI {
     fn quad_to_rect(&self, quad: Quad) -> Rect {
         let mut pos = quad.ld;
         let size = quad.ru - quad.ld;
-        pos.1 = size.1 - pos.1;
+        pos.1 = -size.1 - pos.1;
 
         return Rect(pos.0, pos.1, size.0, size.1);
     }
