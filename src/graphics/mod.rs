@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use crate::{math::{Vector2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
-use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope};
+use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope, ui::UI};
 
 use super::gl_call;
 
@@ -15,6 +15,7 @@ pub mod uniforms;
 pub mod pipeline;
 pub mod gfx;
 pub mod defaults;
+pub mod ui;
 
 mod buffers;
 mod verts;
@@ -294,13 +295,17 @@ impl Graphics {
         
         let mut screen_rt = RenderTexture::to_screen(screen_res);
 
-        let stats = GRAPHICS.read().unwrap().active_scope.render_internal(&mut screen_rt, pipeline);
+        let stats = GRAPHICS.read().unwrap().active_scope.render_internal(&mut screen_rt, true, pipeline);
         unsafe { window.as_mut().unwrap_unchecked() }.swap_buffers();
         return stats;
     }
 
     pub(crate) fn finalize_batch() {
         GRAPHICS.write().unwrap().active_scope.finalize_batch();
+
+        if UI::is_enabled() {
+            UI::finalize_batch();
+        }
     }
 }
 

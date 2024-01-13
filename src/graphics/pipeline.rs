@@ -33,15 +33,19 @@ impl ScreenRect {
 
 pub struct DefaultRenderPipeline;
 impl RenderPipeline for DefaultRenderPipeline {
-    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, stats: &mut RenderStats) {
+    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, ui_data: Option<&SceneRenderData>, stats: &mut RenderStats) {
         screen_rt.clear(scene_data.clear_col);
         screen_rt.render_scene(scene_data, DEFAULT_RENDER_TARGET, stats);
+        
+        if let Some(ui_data) = ui_data {
+            screen_rt.render_scene(ui_data, DEFAULT_RENDER_TARGET, stats);
+        }
     }
 }
 
 
 pub trait RenderPipeline {
-    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, stats: &mut RenderStats);
+    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, ui_data: Option<&SceneRenderData>, stats: &mut RenderStats);
 }
 
 pub struct RenderTexture {

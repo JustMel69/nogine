@@ -2,7 +2,7 @@ use std::{f32::consts::PI, hint::unreachable_unchecked};
 
 use crate::{math::{Matrix3x3, Vector2, Rect, quad::Quad}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
 
-use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA};
+use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI}};
 
 pub struct RenderScope {
     pub(super) is_global: bool,
@@ -59,7 +59,7 @@ impl RenderScope {
         let pipeline = pipeline.unwrap_or(&DefaultRenderPipeline);
 
         let mut rt = RenderTexture::new(res, filtering);
-        let stats = self.render_internal(&mut rt, pipeline);
+        let stats = self.render_internal(&mut rt, false, pipeline);
 
         let texture = rt.statify();
 
@@ -73,7 +73,7 @@ impl RenderScope {
         let pipeline = pipeline.unwrap_or(&DefaultRenderPipeline);
 
         let mut rt = unsafe { RenderTexture::new_from_existing(&texture) };
-        let stats = self.render_internal(&mut rt, pipeline);
+        let stats = self.render_internal(&mut rt, false, pipeline);
         unsafe { rt.forget_tex() };
 
         return stats;
@@ -219,15 +219,22 @@ impl RenderScope {
         };
     }
 
-    pub(super) fn render_internal(&self, target: &mut RenderTexture, pipeline: &dyn RenderPipeline) -> RenderStats {
-        let render_data = SceneRenderData { products: self.batch_data.targets.as_slice(), clear_col: self.clear_col, cam: &self.cam_mat };
+    pub(super) fn render_internal(&self, target: &mut RenderTexture, include_ui: bool, pipeline: &dyn RenderPipeline) -> RenderStats {
+        let render_data = self.gen_scene_data();
         let mut render_stats = RenderStats {
             draw_calls: 0,
             batch_draw_calls: 0,
             rt_draw_calls: 0,
         };
 
-        pipeline.render(target, &render_data, &mut render_stats);
+        if include_ui && UI::is_enabled() {
+            let ui_reader = UI_SINGLETON.read().unwrap();
+            let ui_data = ui_reader.scope.gen_scene_data();
+            pipeline.render(target, &render_data, Some(&ui_data), &mut render_stats);
+        } else {
+            pipeline.render(target, &render_data, None, &mut render_stats);
+        }
+        
         return render_stats;
     }
 
@@ -255,6 +262,10 @@ impl RenderScope {
             blending: self.blending,
             is_line: matches!(mode, Mode::Line),
         };
+    }
+
+    fn gen_scene_data(&self) -> SceneRenderData<'_> {
+        SceneRenderData { products: self.batch_data.targets.as_slice(), clear_col: self.clear_col, cam: &self.cam_mat }
     }
 }
 
