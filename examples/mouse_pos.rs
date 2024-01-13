@@ -3,7 +3,7 @@ use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, Scen
 struct CustomPipeline;
 
 impl RenderPipeline for CustomPipeline {
-    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, stats: &mut RenderStats) {
+    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, _ui_data: Option<&SceneRenderData>, stats: &mut RenderStats) {
         // Render scene to texture
         let mut src_rt = RenderTexture::new((240, 160), TextureFiltering::Closest);
         src_rt.clear(scene_data.clear_col());

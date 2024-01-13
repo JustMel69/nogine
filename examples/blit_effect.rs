@@ -7,7 +7,7 @@ struct CustomPipeline {
 const SHADER_SRC: &str = include_str!("res/invert_blit.frag");
 
 impl RenderPipeline for CustomPipeline {
-    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, stats: &mut RenderStats) {
+    fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, _ui_data: Option<&SceneRenderData>, stats: &mut RenderStats) {
         // Render scene to texture
         let mut src_rt = RenderTexture::sized_as(&screen_rt, TextureFiltering::Closest);
         src_rt.clear(scene_data.clear_col());
