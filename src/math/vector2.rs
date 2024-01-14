@@ -185,3 +185,9 @@ impl Display for Vector2 {
         write!(f, "({}, {})", self.0, self.1)
     }
 }
+
+impl From<(u32, u32)> for Vector2 {
+    fn from(value: (u32, u32)) -> Self {
+        return Vector2(value.0 as f32, value.1 as f32);
+    }
+}

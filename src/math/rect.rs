@@ -1,6 +1,6 @@
 use super::Vector2;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Rect(pub f32, pub f32, pub f32, pub f32);
 
 impl Rect {
@@ -44,5 +44,15 @@ impl Rect {
 
     pub fn size(&self) -> Vector2 {
         return Vector2(self.2, self.3);
+    }
+
+    pub fn sample(&self, pos: Vector2) -> Vector2 {
+        return pos.scale(self.size()) + self.pos();
+    }
+
+    pub fn contains(&self, pos: Vector2) -> bool {
+        return
+            pos.0 >= self.left() && pos.0 <= self.right() &&
+            pos.1 >= self.down() && pos.1 <= self.up();
     }
 }

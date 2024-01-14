@@ -193,6 +193,20 @@ impl RenderScope {
         self.batch_data.send(self.render_target, state, &vert_data, tri_data);
     }
 
+    pub(super) unsafe fn draw_manual(&mut self, mode: Mode, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
+        assert_expr!(tri_data.len() % 3 == 0, "The number of indices must be a multiple of 3.");
+
+        let state = self.gen_ref_state(mode, vert_attribs, textures);
+        self.batch_data.send(self.render_target, state, &vert_data, tri_data);
+    }
+
+    pub(super) fn rect_positions(&mut self, pos: Vector2, extents: Vector2, rot: f32, should_fix: bool) -> Quad {
+        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let quad = internal::make_quad(self.pivot, &tf_mat);
+        
+        return if should_fix { internal::fix_quad(quad) } else { quad };
+    }
+
     pub(super) fn set_material(&mut self, material: Option<Material>, mode: Mode) {
         assert_expr!(!matches!(mode, Mode::Unset), "Mode cannot be unset!");
 

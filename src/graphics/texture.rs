@@ -250,6 +250,14 @@ impl SpriteAtlas {
 
         return Sprite(&self.internal, uv_rect);
     }
+
+    pub fn tex(&self) -> &Texture {
+        return &self.internal;
+    }
+
+    pub fn sprite_dims(&self) -> (u32, u32) {
+        self.sprite_dims
+    }
 }
 
 mod internal {
