@@ -1,6 +1,6 @@
 use std::{sync::RwLock, collections::HashMap};
 
-use crate::{assert_expr, math::{Vector2, quad::Quad, Rect}, graphics::{CamData, Mode}, color::{Color4, Color}, log_info, input::{MouseInput, Input}, crash, log_warn};
+use crate::{assert_expr, math::{Vector2, quad::Quad, Rect}, graphics::{CamData, Mode}, color::{Color4, Color}, log_info, input::{MouseInput, Input}};
 
 use self::internal::ActiveData;
 
@@ -61,8 +61,8 @@ impl UI {
         let mut map = HashMap::new();
         let mut active_data = writer.active_data.clone();
         if let Some(mouse_pos) = mouse_transform(Input::mouse_pos()) {
-            let mut pressed_flags = internal::get_clicks(Input::mouse_pressed);
-            let mut mouse_scroll = Input::get_scroll();
+            let pressed_flags = internal::get_clicks(Input::mouse_pressed);
+            let mouse_scroll = Input::get_scroll();
 
             for inter in writer.interactables.iter().rev() {
                 let hovering = inter.1.contains(mouse_pos);
@@ -93,13 +93,11 @@ impl UI {
             
                 if mouse_scroll != Vector2::ZERO {
                     internal::push_interaction(&mut map, &inter.0, Interaction::Scroll(mouse_scroll));
-                    mouse_scroll = Vector2::ZERO;
                     break;
                 }
             
-                if let Some((click, x)) = internal::get_first_flag(pressed_flags) {
+                if let Some((click, _)) = internal::get_first_flag(pressed_flags) {
                     active_data = Some(ActiveData { id: inter.0.clone(), input: click });
-                    pressed_flags &= !x;
                     break;
                 }
 
