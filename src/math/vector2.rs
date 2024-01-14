@@ -61,13 +61,13 @@ impl Vector2 {
     }
 
     /// Rotates the vector by the rotation provided in radians.<br>
-    /// For rotations that need to match visuals, use `visual_rotate`
+    /// For rotations that need to match visuals, use `rotate_cw`
     pub fn rotate(self, rot: f32) -> Self {
         return Self(self.0 * rot.cos() + self.1 * rot.sin(), self.0 * rot.sin() - self.1 * rot.cos());
     }
 
     /// Rotates the vector by the specified rotation, but in a way that matches up with visual rotations.
-    pub fn visual_rotate(self, rot: f32) -> Self {
+    pub fn rotate_cw(self, rot: f32) -> Self {
         let rotated = self.rotate(rot);
         return Vector2(rotated.0, -rotated.1);
     }
