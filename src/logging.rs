@@ -77,6 +77,16 @@ macro_rules! crash {
     };
 }
 
+#[macro_export]
+macro_rules! non_implemented {
+    ($x:expr) => {
+        {
+            $crate::log_error!(concat!($x, " not implemented!"));
+            std::process::exit(1);
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum LogType {
     Info, Warn, Error
