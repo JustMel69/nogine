@@ -258,6 +258,12 @@ impl SpriteAtlas {
     pub fn sprite_dims(&self) -> (u32, u32) {
         self.sprite_dims
     }
+
+    /// Creates a new sprite atlas with 1x1 cells.
+    pub fn to_freesample(mut self) -> Self {
+        self.sprite_dims = (1, 1);
+        return self;
+    }
 }
 
 mod internal {
