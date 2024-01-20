@@ -31,6 +31,11 @@ impl Vector2 {
         return Self(fact, fact);
     }
 
+    /// Creates a vector in the local space of a basis
+    pub const fn local(x: f32, y: f32, basis: (Vector2, Vector2)) -> Self {
+        return Vector2(x * basis.0.0 + y * basis.1.0, x * basis.0.1 + y * basis.1.1)
+    }
+
 
     pub fn x(self) -> f32 {
         return self.0;
