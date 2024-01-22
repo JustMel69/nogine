@@ -2,7 +2,7 @@ use std::{sync::RwLock, collections::HashMap};
 
 use crate::{assert_expr, math::{Vector2, quad::Quad, Rect}, graphics::{CamData, Mode}, color::{Color4, Color}, log_info, input::{MouseInput, Input}};
 
-use self::internal::ActiveData;
+use self::{internal::ActiveData, text::{Text, SourcedFromUI}};
 
 use super::{render_scope::RenderScope, texture::{Texture, Sprite}};
 
@@ -13,6 +13,8 @@ macro_rules! assert_ui_enabled {
         }
     };
 }
+
+pub mod text;
 
 pub(super) static UI_SINGLETON: RwLock<UI> = RwLock::new(UI::new());
 
@@ -43,6 +45,8 @@ impl UI {
         }
     }
 
+    /// Enables the UI.<br>
+    /// Calling this function at the start of the program is required for UI to work.
     pub fn enable() {
         let mut writer = UI_SINGLETON.write().unwrap();
         writer.enabled = true;
@@ -51,13 +55,22 @@ impl UI {
         log_info!("UI initialized.")
     }
 
+    /// Returns if the UI is enabled.
     pub fn is_enabled() -> bool {
         return UI_SINGLETON.read().unwrap().enabled;
     }
 
+    /// Handles UI input.<br>
+    /// This function should be called shortly before `post_tick` and after all `interactable`s have been created.
     pub fn handle_input(mouse_transform: impl Fn(Vector2) -> Option<Vector2>) {
+        assert_ui_enabled!();
         let mut writer = UI_SINGLETON.write().unwrap();
         
+        // --------------------------------- //
+        //   ⚠️ ⚠️ ⚠️  UGLY CODE AHEAD  ⚠️ ⚠️ ⚠️   //
+        //   [ Refactor is highly needed ]   //
+        // --------------------------------- //
+
         let mut map = HashMap::new();
         let mut active_data = writer.active_data.clone();
         if let Some(mouse_pos) = mouse_transform(Input::mouse_pos()) {
@@ -221,6 +234,12 @@ impl UI {
         return writer.quad_to_rect(internal::fix_quad(quad));
     }
 
+    /// Creates a new text.
+    pub fn text(pos: Vector2, bounds_size: Vector2, text: &str) -> Text<'_, SourcedFromUI> {
+        let tint = { UI_SINGLETON.read().unwrap().tint };
+        return Text::<'_, SourcedFromUI>::new(pos, bounds_size, tint, text);
+    }
+
     /// Draws a wireframe rect.
     pub fn draw_debug_rect(rect: Rect, color: Color4) {
         assert_ui_enabled!();
@@ -252,16 +271,19 @@ impl UI {
         return input;
     }
 
+    /// Sets the UI tint.
     pub fn set_tint(tint: Color4) {
         assert_ui_enabled!();
         UI_SINGLETON.write().unwrap().tint = tint;
     }
 
+    /// Returns the UI tint.
     pub fn get_tint() -> Color4 {
         assert_ui_enabled!();
         return UI_SINGLETON.read().unwrap().tint;
     }
 
+    /// Sets the UI resolution.
     pub fn set_resolution(res: (u32, u32)) {
         assert_ui_enabled!();
         
@@ -269,6 +291,7 @@ impl UI {
         UI_SINGLETON.write().unwrap().scope.set_camera(CamData { pos: Vector2(half_size.0, -half_size.1), half_size });
     }
 
+    /// Returns the UI resolution.
     pub fn get_resolution() -> (u32, u32) {
         assert_ui_enabled!();
 
@@ -367,8 +390,8 @@ mod internal {
     pub fn get_clicks(func: fn(MouseInput) -> bool) -> u8 {
         return 
             ((func(MouseInput::Left) as u8) << 0u8) |
-            ((func(MouseInput::Middle) as u8) << 1u8) |
-            ((func(MouseInput::Right) as u8) << 2u8) |
+            ((func(MouseInput::Right) as u8) << 1u8) |
+            ((func(MouseInput::Middle) as u8) << 2u8) |
             ((func(MouseInput::Button4) as u8) << 3u8) |
             ((func(MouseInput::Button5) as u8) << 4u8) |
             ((func(MouseInput::Button6) as u8) << 5u8) |

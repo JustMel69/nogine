@@ -2,7 +2,7 @@ use std::{f32::consts::PI, hint::unreachable_unchecked};
 
 use crate::{math::{Matrix3x3, Vector2, Rect, quad::Quad}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
 
-use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI}};
+use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::{Text, TextMetadata}}};
 
 pub struct RenderScope {
     pub(super) is_global: bool,
@@ -191,6 +191,35 @@ impl RenderScope {
         
         let state = self.gen_ref_state(Mode::Custom, vert_attribs, textures);
         self.batch_data.send(self.render_target, state, &vert_data, tri_data);
+    }
+
+    pub(super) fn draw_text<T>(&mut self, text: &Text<'_, T>) -> (Quad, Option<TextMetadata>) {
+        assert_expr!(text.font.is_some(), "A font was not provided!");
+
+        let bounds_quad = {
+            let bounds_mat = Matrix3x3::transform_matrix(text.pos, text.rot, text.bounds_size);
+            internal::make_quad(self.pivot, &bounds_mat)
+        };
+
+        let font = text.font.unwrap();
+        let mat = Matrix3x3::transform_matrix(text.pos, text.rot, Vector2::ONE);
+        let pivot_offset = -self.pivot.scale(text.bounds_size);
+
+        // RENDER ONLY ONE LINE CRUDELY
+
+        let mut cursor = 0.0;
+        for c in text.txt.chars() {
+            let end_cursor = cursor + font.char_width(c) * text.font_size;
+            if end_cursor > text.bounds_size.0 {
+                continue;
+            }
+
+            font.draw_char(c, Vector2::right(cursor) + pivot_offset, &mat, text.tint, text.font_size, self);
+            cursor = end_cursor;
+            cursor += font.cfg().char_spacing * text.font_size;
+        }
+
+        return (internal::fix_quad(bounds_quad), None); // TEMP
     }
 
     pub(super) unsafe fn draw_manual(&mut self, mode: Mode, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {

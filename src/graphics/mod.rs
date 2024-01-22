@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use crate::{math::{Vector2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
-use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope, ui::UI};
+use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope, ui::{UI, text::{Text, SourcedFromGraphics}}};
 
 use super::gl_call;
 
@@ -84,6 +84,11 @@ impl Graphics {
         Self::set_blending_mode(BlendingMode::AlphaMix);
 
         log_info!("Graphics initialized.");
+    }
+
+    pub(crate) fn using_scope<T>(func: impl Fn(&mut RenderScope) -> T) -> T {
+        let mut writer = GRAPHICS.write().unwrap();
+        return func(&mut writer.active_scope);
     }
 
     pub fn with_scope<T, F: FnMut() -> T>(scope: &mut RenderScope, mut render_fn: F) -> T {
@@ -193,6 +198,13 @@ impl Graphics {
     pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         GRAPHICS.write().unwrap().active_scope.draw_custom_mesh(pos, rot, scale, vert_data, tri_data, vert_attribs, textures);
     }
+
+    /// Creates a new text.
+    #[must_use]
+    pub fn text(pos: Vector2, bounds_size: Vector2, rot: f32, text: &str) -> Text<'_, SourcedFromGraphics> {
+        return Text::<'_, SourcedFromGraphics>::new(pos, bounds_size, rot, text);
+    }
+
 
     /// Draws a quad
     pub fn draw_debug_quad(quad: Quad, color: Color4) {

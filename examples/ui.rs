@@ -1,4 +1,4 @@
-use nogine::{graphics::{ui::{UI, Origin, Interaction}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, SprRect, Sprite}, Graphics}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res, utils::rng::RNG};
+use nogine::{graphics::{ui::{UI, Origin, Interaction}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, SprRect, Sprite}, Graphics}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res, utils::rng::RNG, input::MouseInput};
 
 const HEARTS_DATA: &[u8] = include_bytes!("res/hearts.png");
 const PANEL_DATA: &[u8] = include_bytes!("res/panel.png");
@@ -33,6 +33,7 @@ impl Assets {
 struct Resources {
     health: u32,
     hovering: bool,
+    draggable_pos: Vector2,
 }
 
 fn main() {
@@ -42,7 +43,7 @@ fn main() {
     UI::enable();
 
     let assets = Assets::load();
-    let mut resources = Resources { health: 0, hovering: false };
+    let mut resources = Resources { health: 0, hovering: false, draggable_pos: Vector2::ZERO };
 
     let mut time = 0.0;
     while window.is_running() {
@@ -63,6 +64,7 @@ fn draw_ui(res: (u32, u32), resources: &mut Resources, assets: &Assets) {
 
     draw_health_bar(resources.health, &assets.hearts);
     draw_button(&mut resources.hovering, assets.panel.get(SprRect(0, 0, 3, 3)));
+    draw_draggable(&mut resources.draggable_pos);
 }
 
 fn draw_health_bar(health: u32, atlas: &SpriteAtlas) {
@@ -93,4 +95,12 @@ fn draw_button(hovering: &mut bool, sprite: Sprite<'_>) {
     }
 
     UI::set_tint(Color4::WHITE);
+}
+
+fn draw_draggable(draggable_pos: &mut Vector2) {
+    let rect = UI::draw_rect(Origin::Center, *draggable_pos, Vector2::one(128.0), Color4::ORANGE);
+
+    if let Some(Interaction::DragOrHold { input: MouseInput::Left, delta }) = UI::interactable(rect, "draggable") {
+        *draggable_pos += delta;
+    }
 }
