@@ -211,16 +211,23 @@ impl RenderScope {
                 break;
             }
             
-            let mut cursor_h = 0.0;
+            let (mut cursor_h, space_size) = internal::cursor_h_data(l, font, text.hor_align, text.bounds_size.0, text.font_size);
+            let char_spacing = font.cfg().char_spacing * text.font_size;
             for c in l.chars() {
+                if c.is_whitespace() {
+                    cursor_h += space_size;
+                    cursor_h += char_spacing;
+                    continue;
+                }
+                
                 let end_cursor = cursor_h + font.char_width(c) * text.font_size;
-                if end_cursor > text.bounds_size.0 {
+                if end_cursor > text.bounds_size.0 + char_spacing {
                     break;
                 }
 
                 font.draw_char(c, Vector2(cursor_h, cursor_v) + pivot_offset, &mat, text.tint, text.font_size, self);
                 cursor_h = end_cursor;
-                cursor_h += font.cfg().char_spacing * text.font_size;
+                cursor_h += char_spacing;
             }
 
             cursor_v -= text.font_size;
@@ -321,7 +328,7 @@ impl RenderScope {
 }
 
 mod internal {
-    use crate::{graphics::ui::text::VerTextAlignment, math::{quad::Quad, Matrix3x3, Vector2}, non_implemented};
+    use crate::{graphics::ui::text::{font::Font, precalc::{Len, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, Matrix3x3, Vector2}, non_implemented};
 
     pub fn convert_vert_data<T>(src: &[T]) -> &[f32] {
         let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
@@ -359,6 +366,35 @@ mod internal {
             VerTextAlignment::Middle => ((text_height + spacing_height + bounds) * 0.5 - font_size, def_line_spacing),
             VerTextAlignment::Bottom => (text_height + spacing_height - font_size, def_line_spacing),
             VerTextAlignment::Expand => (bounds - font_size, (bounds - text_height) / spacing_count as f32),
+        }
+    }
+
+    /// returns `(initial_val, space_width)`
+    pub fn cursor_h_data(line: &str, font: &dyn Font, alignment: HorTextAlignment, bounds: f32, font_size: f32) -> (f32, f32) {
+        let spacing = font.cfg().char_spacing;
+        
+        let iter = LenLexer::new(line, font);
+        let (mut wordlen, mut spacelen, word_last, space_counts) = iter.fold((0.0f32, 0.0f32, false, 0), |mut accum, item| {
+            match item {
+                Len::Word(x) => { accum.0 += x; accum.2 = true; },
+                Len::Space(x) => { accum.1 += x; accum.2 = false; accum.3 += 1 },
+            };
+            accum
+        });
+        
+        if word_last {
+            wordlen -= spacing;
+        } else {
+            spacelen -= spacing;
+        }
+
+        let default_space = font.cfg().word_spacing * font_size;
+        match alignment {
+            HorTextAlignment::Left => (0.0, default_space),
+            HorTextAlignment::Center => ((bounds - (wordlen + spacelen) * font_size) * 0.5, default_space),
+            HorTextAlignment::Right => (bounds - (wordlen + spacelen) * font_size, default_space),
+            HorTextAlignment::Justified => non_implemented!("Justified not implemented"),
+            HorTextAlignment::Expand => (0.0, (bounds - wordlen * font_size) / (space_counts as f32) - font.cfg().char_spacing * font_size),
         }
     }
 }

@@ -55,4 +55,8 @@ impl Rect {
             pos.0 >= self.left() && pos.0 <= self.right() &&
             pos.1 >= self.down() && pos.1 <= self.up();
     }
+
+    pub fn expand(self, fact: f32) -> Self {
+        return Self(self.0 - fact, self.1 - fact, self.2 + fact * 2.0, self.3 + fact * 2.0);
+    }
 }

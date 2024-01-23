@@ -5,7 +5,7 @@ use crate::{color::{Color4, Color}, math::{Vector2, Rect, quad::Quad}, assert_ex
 use self::font::Font;
 
 pub mod font;
-//mod precalc;
+pub(in crate::graphics) mod precalc;
 
 pub struct SourcedFromGraphics;
 pub struct SourcedFromUI;

@@ -16,6 +16,7 @@ pub mod pipeline;
 pub mod gfx;
 pub mod defaults;
 pub mod ui;
+pub mod consts;
 
 mod buffers;
 mod verts;

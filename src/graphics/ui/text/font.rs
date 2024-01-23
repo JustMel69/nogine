@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{graphics::{texture::{SpriteAtlas, Sprite, SprRect}, Mode, render_scope::RenderScope}, non_implemented, math::{Matrix3x3, Vector2}, color::Color4};
+use crate::{graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{SpriteAtlas, Sprite, SprRect}, Mode}, non_implemented, math::{Matrix3x3, Vector2}, color::Color4};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -77,11 +77,14 @@ impl FontInternal for BitmapFont {
         if let Some(sprite) = self.sample_char(c) {
             let char_size = Vector2(self.char_width(c), 1.0) * font_size;
             let char_quad = internal::make_quad(offset, char_size, mat);
+
+            let rect = sprite.rect().expand(-UV_RECT_EPSILON);
+
             let vert_data = [
-                Vertex(char_quad.ld, tint, sprite.rect().lu()),
-                Vertex(char_quad.lu, tint, sprite.rect().ld()),
-                Vertex(char_quad.ru, tint, sprite.rect().rd()),
-                Vertex(char_quad.rd, tint, sprite.rect().ru()),
+                Vertex(char_quad.ld, tint, rect.lu()),
+                Vertex(char_quad.lu, tint, rect.ld()),
+                Vertex(char_quad.ru, tint, rect.rd()),
+                Vertex(char_quad.rd, tint, rect.ru()),
             ];
             let vert_data = internal::convert_vert_data(&vert_data);
             unsafe { scope.draw_manual(Mode::Textured, vert_data, &[0, 1, 2, 2, 3, 0], &[2, 4, 2], &[sprite.tex()]) };
