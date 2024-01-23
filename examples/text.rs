@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, ui::text::font::{BitmapFont, FontCfg}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
+use nogine::{graphics::{Graphics, ui::text::{font::{BitmapFont, FontCfg}, VerTextAlignment}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
 
 const FONT_DATA: &[u8] = include_bytes!("res/text.png");
 
@@ -15,7 +15,7 @@ fn main() {
             (6, 8)
         ),
         "abcdefghijklmnopqrstuvwxyz",
-        FontCfg{ monospace: true, char_spacing: 1.0 / 6.0, ..Default::default()}
+        FontCfg{ monospace: true, char_spacing: 1.0 / 6.0, line_spacing: 4.0 / 8.0, ..Default::default()}
     );
 
     while window.is_running() {
@@ -24,7 +24,7 @@ fn main() {
         Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
 
         Graphics::set_pivot(Vector2::one(0.5));
-        let (quad, _) = Graphics::text(Vector2::ZERO, Vector2(2.0, 1.0), 0.0, "bitmap font awa ewe iwi owo uwu").font_size(0.1).font(&font).draw();
+        let (quad, _) = Graphics::text(Vector2::ZERO, Vector2(2.0, 1.6), 0.0, "one\ntwo\nthree\nfour\nfive").font_size(0.1).font(&font).ver_align(VerTextAlignment::Expand).draw();
         Graphics::set_pivot(Vector2::ZERO);
 
         Graphics::draw_debug_quad(quad, Color4::LIME);

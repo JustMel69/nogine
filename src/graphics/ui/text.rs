@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{color::{Color4, Color}, math::{Vector2, Rect, quad::Quad}, assert_expr, graphics::{GRAPHICS, Graphics}};
+use crate::{color::{Color4, Color}, math::{Vector2, Rect, quad::Quad}, assert_expr, graphics::Graphics};
 
 use self::font::Font;
 

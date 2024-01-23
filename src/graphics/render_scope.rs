@@ -205,18 +205,26 @@ impl RenderScope {
         let mat = Matrix3x3::transform_matrix(text.pos, text.rot, Vector2::ONE);
         let pivot_offset = -self.pivot.scale(text.bounds_size);
 
-        // RENDER ONLY ONE LINE CRUDELY
+        let (mut cursor_v, line_spacing) = internal::cursor_v_data(text.ver_align, text.bounds_size.1, text.font_size, font.cfg().line_spacing, text.txt.lines().count());
+        for l in text.txt.lines() {
+            if cursor_v < -line_spacing {
+                break;
+            }
+            
+            let mut cursor_h = 0.0;
+            for c in l.chars() {
+                let end_cursor = cursor_h + font.char_width(c) * text.font_size;
+                if end_cursor > text.bounds_size.0 {
+                    break;
+                }
 
-        let mut cursor = 0.0;
-        for c in text.txt.chars() {
-            let end_cursor = cursor + font.char_width(c) * text.font_size;
-            if end_cursor > text.bounds_size.0 {
-                continue;
+                font.draw_char(c, Vector2(cursor_h, cursor_v) + pivot_offset, &mat, text.tint, text.font_size, self);
+                cursor_h = end_cursor;
+                cursor_h += font.cfg().char_spacing * text.font_size;
             }
 
-            font.draw_char(c, Vector2::right(cursor) + pivot_offset, &mat, text.tint, text.font_size, self);
-            cursor = end_cursor;
-            cursor += font.cfg().char_spacing * text.font_size;
+            cursor_v -= text.font_size;
+            cursor_v -= line_spacing;
         }
 
         return (internal::fix_quad(bounds_quad), None); // TEMP
@@ -313,7 +321,7 @@ impl RenderScope {
 }
 
 mod internal {
-    use crate::math::{quad::Quad, Matrix3x3, Vector2};
+    use crate::{graphics::ui::text::VerTextAlignment, math::{quad::Quad, Matrix3x3, Vector2}, non_implemented};
 
     pub fn convert_vert_data<T>(src: &[T]) -> &[f32] {
         let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
@@ -335,6 +343,22 @@ mod internal {
             rd: Vector2(quad.rd.0, -quad.rd.1),
             lu: Vector2(quad.lu.0, -quad.lu.1),
             ru: Vector2(quad.ru.0, -quad.ru.1),
+        }
+    }
+
+    /// returns `(initial_val, final_line_spacing)`
+    pub fn cursor_v_data(alignment: VerTextAlignment, bounds: f32, font_size: f32, line_spacing: f32, line_count: usize) -> (f32, f32) {
+        let def_line_spacing = line_spacing * font_size;
+        let spacing_count = line_count.max(1) - 1;
+
+        let text_height = line_count as f32 * font_size;
+        let spacing_height = spacing_count as f32 * def_line_spacing;
+        
+        match alignment {
+            VerTextAlignment::Top => (bounds - font_size, def_line_spacing),
+            VerTextAlignment::Middle => ((text_height + spacing_height + bounds) * 0.5 - font_size, def_line_spacing),
+            VerTextAlignment::Bottom => (text_height + spacing_height - font_size, def_line_spacing),
+            VerTextAlignment::Expand => (bounds - font_size, (bounds - text_height) / spacing_count as f32),
         }
     }
 }
