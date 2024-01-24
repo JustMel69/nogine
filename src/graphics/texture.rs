@@ -3,7 +3,7 @@ use std::{io::{Read, Seek, BufReader}, sync::Arc};
 use image::{EncodableLayout, GenericImageView, ImageError};
 use thiserror::Error;
 
-use crate::{math::Rect, Res, assert_expr};
+use crate::{assert_expr, color::BColor4, math::Rect, Res};
 
 use super::super::gl_call;
 
@@ -77,70 +77,15 @@ impl TextureCore {
 #[derive(Debug, Clone)]
 pub struct Texture {
     id: Arc<TextureCore>,
-    //_colors: Box<[u8]>,
+    data: Option<Box<[u8]>>,
     dims: (u32, u32)
 }
 
 impl Texture {
     /// Loads a texture from a reader.
     pub fn load(src: impl Read + Seek, cfg: TextureCfg) -> Res<Self, TextureError> {
-        let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().map_err(|e| TextureError::from(e))?;
-        let img = decoder.decode().map_err(|e| TextureError::from(e))?;
-        let dims = img.dimensions();
-        
-        let (data, fmt) = match img {
-            image::DynamicImage::ImageLuma8(img) => {
-                let data = img.as_bytes().into();
-                (data, TextureFormat::R)
-            },
-            image::DynamicImage::ImageLumaA8(img) => {
-                let data = img.as_bytes().into();
-                (data, TextureFormat::RA)
-            },
-            image::DynamicImage::ImageRgb8(img) => {
-                let data = img.as_bytes().into();
-                (data, TextureFormat::RGB)
-            },
-            image::DynamicImage::ImageRgba8(img) => {
-                let data = img.as_bytes().into();
-                (data, TextureFormat::RGBA)
-            },
-            image::DynamicImage::ImageLuma16(img) => {
-                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
-                (data, TextureFormat::R)
-            },
-            image::DynamicImage::ImageLumaA16(img) => {
-                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
-                (data, TextureFormat::RA)
-            },
-            image::DynamicImage::ImageRgb16(img) => {
-                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
-                (data, TextureFormat::RGB)
-            },
-            image::DynamicImage::ImageRgba16(img) => {
-                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
-                (data, TextureFormat::RGBA)
-            },
-            image::DynamicImage::ImageRgb32F(img) => {
-                let data = img.as_bytes().chunks(4).map(|x| {
-                    let buf = [x[0], x[1], x[2], x[3]];
-                    let x = f32::from_le_bytes(buf);
-                    (x * 256.0).min(255.0) as u8
-                }).collect();
-                (data, TextureFormat::RGB)
-            },
-            image::DynamicImage::ImageRgba32F(img) => {
-                let data = img.as_bytes().chunks(4).map(|x| {
-                    let buf = [x[0], x[1], x[2], x[3]];
-                    let x = f32::from_le_bytes(buf);
-                    (x * 256.0).min(255.0) as u8
-                }).collect();
-                (data, TextureFormat::RGBA)
-            },
-            _ => return Err(TextureError::UnsupportedFormat),
-        };
-
-        return Ok(Self::new(data, fmt, dims, cfg));
+        let tex_data = load_texture_data(src, cfg)?;
+        return Ok(Self::new(tex_data.data, tex_data.fmt, tex_data.dims, tex_data.cfg));
     }
 
     /// Creates a texture from a set of data.
@@ -160,7 +105,7 @@ impl Texture {
 
         gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, rgba_colors.as_ptr() as *const std::ffi::c_void));
 
-        return Texture { id: Arc::new(TextureCore(id)), /*_colors: rgba_colors,*/ dims };
+        return Texture { id: Arc::new(TextureCore(id)), data: Some(rgba_colors), dims };
     }
 
     pub fn empty(fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
@@ -179,11 +124,11 @@ impl Texture {
 
         gl_call!(gl::TexImage2D(gl::TEXTURE_2D, 0, internal_fmt as i32, dims.0 as i32, dims.1 as i32, 0, gl::RGBA, gl::UNSIGNED_BYTE, std::ptr::null()));
 
-        return Texture { id: Arc::new(TextureCore(id)), /*_colors: rgba_colors,*/ dims };
+        return Texture { id: Arc::new(TextureCore(id)), data: None, dims };
     }
 
     pub(crate) unsafe fn from_raw_parts(core: u32, dims: (u32, u32)) -> Self {
-        return Self { id: Arc::new(TextureCore(core)), dims };
+        return Self { id: Arc::new(TextureCore(core)), data: None, dims };
     }
 
 
@@ -197,6 +142,13 @@ impl Texture {
 
     pub(crate) fn clone_core(&self) -> Arc<TextureCore> {
         self.id.clone()
+    }
+
+    pub fn with_pixels<T, F: Fn(Pixels<'_>) -> T>(&self, func: F) -> Option<T> {
+        let x = &self.data.as_ref()?[..];
+
+        let px = Pixels { inner: x, res: self.dims };
+        return Some(func(px));
     }
 }
 
@@ -289,5 +241,89 @@ mod internal {
         };
 
         return (wrapping, filtering, internal_fmt);
+    }
+}
+
+pub(crate) struct RawTexData {
+    pub data: Box<[u8]>,
+    pub fmt: TextureFormat,
+    pub dims: (u32, u32),
+    pub cfg: TextureCfg,
+}
+pub(crate) fn load_texture_data(src: impl Read + Seek, cfg: TextureCfg) -> Res<RawTexData, TextureError> {
+    let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().map_err(|e| TextureError::from(e))?;
+        let img = decoder.decode().map_err(|e| TextureError::from(e))?;
+        let dims = img.dimensions();
+        
+        let (data, fmt) = match img {
+            image::DynamicImage::ImageLuma8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::R)
+            },
+            image::DynamicImage::ImageLumaA8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::RA)
+            },
+            image::DynamicImage::ImageRgb8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::RGB)
+            },
+            image::DynamicImage::ImageRgba8(img) => {
+                let data = img.as_bytes().into();
+                (data, TextureFormat::RGBA)
+            },
+            image::DynamicImage::ImageLuma16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::R)
+            },
+            image::DynamicImage::ImageLumaA16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::RA)
+            },
+            image::DynamicImage::ImageRgb16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::RGB)
+            },
+            image::DynamicImage::ImageRgba16(img) => {
+                let data = img.as_bytes().iter().skip(1).step_by(2).copied().collect();
+                (data, TextureFormat::RGBA)
+            },
+            image::DynamicImage::ImageRgb32F(img) => {
+                let data = img.as_bytes().chunks(4).map(|x| {
+                    let buf = [x[0], x[1], x[2], x[3]];
+                    let x = f32::from_le_bytes(buf);
+                    (x * 256.0).min(255.0) as u8
+                }).collect();
+                (data, TextureFormat::RGB)
+            },
+            image::DynamicImage::ImageRgba32F(img) => {
+                let data = img.as_bytes().chunks(4).map(|x| {
+                    let buf = [x[0], x[1], x[2], x[3]];
+                    let x = f32::from_le_bytes(buf);
+                    (x * 256.0).min(255.0) as u8
+                }).collect();
+                (data, TextureFormat::RGBA)
+            },
+            _ => return Err(TextureError::UnsupportedFormat),
+        };
+
+        return Ok(RawTexData { data, fmt, dims, cfg });
+}
+
+pub struct Pixels<'a> {
+    inner: &'a [u8],
+    res: (u32, u32),
+}
+
+impl<'a> Pixels<'a> {
+    pub fn get(&self, pos: (u32, u32)) -> BColor4 {
+        assert_expr!(pos.0 < self.res.0 && pos.1 < self.res.1, "Pixel out of bounds! (Pos was ({}, {}), Res was ({}, {}))", pos.0, pos.1, self.res.0, self.res.1);
+        
+        let index = (pos.0 + pos.1 * self.res.0) as usize * 4;
+        return BColor4(self.inner[index], self.inner[index + 1], self.inner[index + 2], self.inner[index + 3])
+    }
+
+    pub fn res(&self) -> (u32, u32) {
+        self.res
     }
 }
