@@ -26,6 +26,7 @@ pub struct Text<'a, T> {
     pub(crate) ver_align: VerTextAlignment,
 
     pub(crate) word_wrapping: bool,
+    pub(crate) progress: Option<usize>,
 
     pub(crate) rich: bool,
 }
@@ -63,9 +64,15 @@ impl<'a, T> Text<'a, T> {
         return self;
     }
 
-    /// Enables text wrapping
+    /// Enables text wrapping.
     #[must_use] pub fn word_wrapped(mut self) -> Self {
         self.word_wrapping = true;
+        return self;
+    }
+
+    /// Sets the progress of the text.
+    #[must_use] pub fn progress(mut self, progress: Option<usize>) -> Self {
+        self.progress = progress;
         return self;
     }
 }
@@ -76,7 +83,8 @@ impl<'a> Text<'a, SourcedFromGraphics> {
             _phantom: PhantomData,
             pos, bounds_size, rot, txt,
             tint: Color4::WHITE, font: None,
-            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top, word_wrapping: false,
+            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top,
+            word_wrapping: false, progress: None,
             rich: false
         }
     }
@@ -107,7 +115,8 @@ impl<'a> Text<'a, SourcedFromUI> {
             _phantom: PhantomData,
             pos, bounds_size, rot: 0.0, txt,
             tint, font: None,
-            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top, word_wrapping: false,
+            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top,
+            word_wrapping: false, progress: None,
             rich: false
         }
     }

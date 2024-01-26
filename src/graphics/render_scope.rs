@@ -211,8 +211,10 @@ impl RenderScope {
             text.txt.split('\n').map(|x| (x, text.hor_align)).collect::<Vec<_>>()
         };
 
+        let mut char_count = 0;
+
         let (mut cursor_v, line_spacing) = internal::cursor_v_data(text.ver_align, text.bounds_size.1, text.font_size, font.cfg().line_spacing, lines.len());
-        for (l, align) in lines {
+        'outer: for (l, align) in lines {
             if cursor_v < -line_spacing {
                 break;
             }
@@ -243,6 +245,13 @@ impl RenderScope {
                 
                 cursor_h = end_cursor;
                 cursor_h += char_spacing;
+
+                char_count += 1;
+                if let Some(progress) = text.progress {
+                    if char_count >= progress {
+                        break 'outer;
+                    }
+                }
             }
 
             cursor_v -= text.font_size;

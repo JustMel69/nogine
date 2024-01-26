@@ -41,7 +41,7 @@ fn main() {
 
         Graphics::text(Vector2::up(0.5), Vector2(2.0, 0.15), 0.0, "monospace font").font_size(0.1).font(&font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Center).draw();
 
-        let (quad, _) = Graphics::text(Vector2::up(-0.5), Vector2(3.0, 0.5), 0.0, "Very very long text that in no way in HELL fits in 12345 container bounds.\nBottom text.").font_size(0.1).font(&nice_font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Justified).word_wrapped().draw();
+        let (quad, _) = Graphics::text(Vector2::up(-0.5), Vector2(3.0, 0.5), 0.0, "Very very long text that in no way in HELL fits in 12345 container bounds.\nBottom text.").font_size(0.1).font(&nice_font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Justified).word_wrapped().progress(Some(30)).draw();
 
         Graphics::set_pivot(Vector2::ZERO);
 
