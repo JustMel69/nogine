@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{SpriteAtlas, Sprite, SprRect}, Mode}, non_implemented, math::{Matrix3x3, Vector2}, color::Color4};
+use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{SpriteAtlas, Sprite, SprRect}, Mode}, math::{Matrix3x3, Vector2}, non_implemented};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -15,7 +15,7 @@ pub trait Font : FontInternal {
 
 pub struct BitmapFont {
     atlas: SpriteAtlas,
-    charset: HashMap<char, (u32, u32)>,
+    charset: HashMap<char, SprRect>,
     cfg: FontCfg,
     mono_data: Option<MonospaceData>,
 }
@@ -23,10 +23,19 @@ pub struct BitmapFont {
 impl BitmapFont {
     pub fn new(atlas: SpriteAtlas, charset: &str, cfg: FontCfg) -> Self {
         let cell_width = atlas.tex().dims().0 / atlas.sprite_dims().0;
+        let sprite_dims = atlas.sprite_dims();
+        let atlas = atlas.to_freesample();
 
         let mut hashmap = HashMap::new();
         for (i, c) in charset.chars().enumerate() {
-            hashmap.insert(c, (i as u32 % cell_width, i as u32 / cell_width));
+            let base_rect = SprRect(
+                (i as u32 % cell_width) * sprite_dims.0, (i as u32 / cell_width) * sprite_dims.1,
+                sprite_dims.0, sprite_dims.1
+            );
+
+            let rect = if cfg.monospace { base_rect } else { Self::tight_fit(&atlas, base_rect) };
+            
+            hashmap.insert(c, rect);
         }
 
         let mono_data = if cfg.monospace {
@@ -35,11 +44,52 @@ impl BitmapFont {
             let char_width = spr_dims.0 as f32 / spr_dims.1 as f32;
             Some(MonospaceData { char_width })
         } else {
-            non_implemented!("Non monospace fonts")
+            None
         };
 
         return Self { atlas, charset: hashmap, cfg, mono_data };
     }
+
+    pub fn tight_fit(atlas: &SpriteAtlas, rect: SprRect) -> SprRect {
+        let px0 = rect.0 * atlas.sprite_dims().0;
+        let px1 = (rect.0 + rect.2 - 1) * atlas.sprite_dims().0;
+
+        let py0 = rect.1 * atlas.sprite_dims().1;
+        let py1 = (rect.1 + rect.3 - 1) * atlas.sprite_dims().1;
+
+        let res = atlas.tex().with_pixels(|p| {
+            // Right sweep
+            let mut start = px0;
+            'outer: for x in px0..=px1 {
+                for y in py0..=py1 {
+                    if p.get((x, y)).3 != 0 {
+                        start = x;
+                        break 'outer;
+                    }
+                }
+            }
+
+            // Left sweep
+            let mut end = px1;
+            'outer: for x in (start..=px1).rev() {
+                for y in py0..=py1 {
+                    if p.get((x, y)).3 != 0 {
+                        end = x;
+                        break 'outer;
+                    }
+                }
+            }
+
+            return (start, end);
+        });
+
+        assert_expr!(res.is_some(), "Cannot read pixels from the font texture!");
+        let (start, end) = res.unwrap();
+        let width = end - start + 1;
+
+        return SprRect(start, rect.1, width, rect.3);
+    }
+
 }
 
 impl Font for BitmapFont {
@@ -48,24 +98,25 @@ impl Font for BitmapFont {
     }
 
     fn char_width(&self, c: char) -> f32 {
-        if let Some(mono_data) = &self.mono_data {
+        if c.is_whitespace() {
             if c == '\t' {
                 return self.cfg.word_spacing * self.cfg.tab_size;
             }
 
-            if c.is_whitespace() {
-                return self.cfg.word_spacing;
-            }
-
+            return self.cfg.word_spacing;
+        }
+        
+        if let Some(mono_data) = &self.mono_data {
             return mono_data.char_width;
         } else {
-            non_implemented!("Non monospace fonts");
+            let rect = self.charset.get(&c).copied().unwrap_or(SprRect(0, 0, 1, 1));
+            return rect.2 as f32 / rect.3 as f32;
         }
     }
 
     fn sample_char(&self, c: char) -> Option<Sprite<'_>> {
-        let pos = self.charset.get(&c)?;
-        return Some(self.atlas.get(SprRect(pos.0, pos.1, 1, 1)));
+        let rect = self.charset.get(&c)?;
+        return Some(self.atlas.get(*rect));
     }
 }
 
@@ -118,7 +169,9 @@ pub(crate) trait FontInternal {
 
 
 mod internal {
-    use crate::math::{quad::Quad, Matrix3x3, Vector2};
+    use std::ops::RangeInclusive;
+
+    use crate::{graphics::texture::Texture, math::{quad::Quad, Matrix3x3, Vector2}};
 
     pub fn make_quad(offset: Vector2, size: Vector2, mat: &Matrix3x3) -> Quad {
         return Quad {
