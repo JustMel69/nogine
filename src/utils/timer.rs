@@ -14,6 +14,6 @@ impl<'a> Timer<'a> {
 
     pub fn end(self) {
         let ms = self.creation.elapsed().as_secs_f64() * 1000.0;
-        log_info!("Timer ({}): {ms} ms", self.name);
+        log_info!("Timer ({}): {ms:.4} ms", self.name);
     }
 }

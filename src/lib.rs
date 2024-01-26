@@ -10,8 +10,10 @@ pub mod audio;
 pub mod utils {
     pub mod heap;
     pub mod rng;
+    pub mod timer;
     pub(crate) mod ptr_slice;
 }
+pub mod resource;
 pub mod logging;
 
 type Res<T, E> = Result<T, E>;
