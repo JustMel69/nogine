@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{SpriteAtlas, Sprite, SprRect}, Mode}, math::{Matrix3x3, Vector2}, non_implemented};
+use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{SpriteAtlas, Sprite, SprRect}, Mode}, math::{Matrix3x3, Vector2}};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -169,9 +169,7 @@ pub(crate) trait FontInternal {
 
 
 mod internal {
-    use std::ops::RangeInclusive;
-
-    use crate::{graphics::texture::Texture, math::{quad::Quad, Matrix3x3, Vector2}};
+    use crate::math::{quad::Quad, Matrix3x3, Vector2};
 
     pub fn make_quad(offset: Vector2, size: Vector2, mat: &Matrix3x3) -> Quad {
         return Quad {

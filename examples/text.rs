@@ -1,6 +1,4 @@
-use std::time::Instant;
-
-use nogine::{color::{Color4, Color}, graphics::{Graphics, ui::text::{font::{BitmapFont, FontCfg}, HorTextAlignment, VerTextAlignment}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}}, log_info, math::Vector2, unwrap_res, utils::timer::Timer, window::{WindowCfg, WindowMode}};
+use nogine::{color::{Color, Color4}, graphics::{Graphics, ui::text::{font::{BitmapFont, FontCfg}, HorTextAlignment, VerTextAlignment}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}}, math::Vector2, unwrap_res, window::{WindowCfg, WindowMode}};
 
 const FONT_DATA: &[u8] = include_bytes!("res/text.png");
 const NICE_FONT_DATA: &[u8] = include_bytes!("res/nice_text.png");
@@ -29,7 +27,7 @@ fn main() {
             )), 
             (10, 9)
         ),
-        "0123456789.,:;'()[]{}<>?!¿¡_*+-=/#%@~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚáéíóúÑñ",
+        "0123456789.,:;'()[]{}<>?!¿¡_*+-=/#%@~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚÜáéíóúüÑñ",
         FontCfg { monospace: false, char_spacing: 1.0 / 9.0, line_spacing: 1.0 / 9.0, word_spacing: 5.0 / 9.0, ..Default::default() }
     );
 
@@ -43,11 +41,11 @@ fn main() {
 
         Graphics::text(Vector2::up(0.5), Vector2(2.0, 0.15), 0.0, "monospace font").font_size(0.1).font(&font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Center).draw();
 
-        let timer = Timer::start("Text");
-        Graphics::text(Vector2::up(-0.5), Vector2(4.0, 0.5), 0.0, "The Quick Brown Fox Jumps Over The Lazy Dog.\nthe quick brown fox jumps over the lazy dog?\nTHE QUICK BROWN FOX JUMPS OVER THE LAZY DOG!\nMe cago en la puta madre que te parió hijo de puta.").font_size(0.1).font(&nice_font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Center).draw();
-        timer.end();
+        let (quad, _) = Graphics::text(Vector2::up(-0.5), Vector2(3.0, 0.5), 0.0, "Very very long text that in no way in HELL fits in 12345 container bounds.\nBottom text.").font_size(0.1).font(&nice_font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Justified).word_wrapped().draw();
 
         Graphics::set_pivot(Vector2::ZERO);
+
+        Graphics::draw_debug_quad(quad, Color4::LIME);
         
         window.post_tick();
     }

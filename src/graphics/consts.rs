@@ -1,1 +1,1 @@
-pub const UV_RECT_EPSILON: f32 = 0.00001;
+pub const UV_RECT_EPSILON: f32 = 0.0000001;

@@ -25,6 +25,8 @@ pub struct Text<'a, T> {
     pub(crate) hor_align: HorTextAlignment,
     pub(crate) ver_align: VerTextAlignment,
 
+    pub(crate) word_wrapping: bool,
+
     pub(crate) rich: bool,
 }
 
@@ -60,6 +62,12 @@ impl<'a, T> Text<'a, T> {
         self.ver_align = ver_align;
         return self;
     }
+
+    /// Enables text wrapping
+    #[must_use] pub fn word_wrapped(mut self) -> Self {
+        self.word_wrapping = true;
+        return self;
+    }
 }
 
 impl<'a> Text<'a, SourcedFromGraphics> {
@@ -68,7 +76,7 @@ impl<'a> Text<'a, SourcedFromGraphics> {
             _phantom: PhantomData,
             pos, bounds_size, rot, txt,
             tint: Color4::WHITE, font: None,
-            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top,
+            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top, word_wrapping: false,
             rich: false
         }
     }
@@ -81,6 +89,14 @@ impl<'a> Text<'a, SourcedFromGraphics> {
 
     /// Drawws the text.
     pub fn draw(&mut self) -> (Quad, Option<TextMetadata>) {
+        if matches!(self.hor_align, HorTextAlignment::Justified) {
+            assert_expr!(self.word_wrapping, "Word wrapping must be enabled for justified text!");
+        }
+
+        if matches!(self.hor_align, HorTextAlignment::Expand) {
+            assert_expr!(!self.word_wrapping, "Word wrapping must be disabled for horizontal expand text!");
+        }
+
         return Graphics::using_scope(|scope| scope.draw_text(self));
     }
 }
@@ -91,7 +107,7 @@ impl<'a> Text<'a, SourcedFromUI> {
             _phantom: PhantomData,
             pos, bounds_size, rot: 0.0, txt,
             tint, font: None,
-            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top,
+            font_size: 1.0, hor_align: HorTextAlignment::Left, ver_align: VerTextAlignment::Top, word_wrapping: false,
             rich: false
         }
     }

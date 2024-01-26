@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{math::{Matrix3x3, Vector2, Rect, quad::Quad}, color::{Color4, Color}, graphics::Mode, assert_expr, utils::ptr_slice::PtrSlice};
+use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, log_info, math::{Matrix3x3, Vector2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
 
 use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::{Text, TextMetadata}}};
 
@@ -205,13 +205,25 @@ impl RenderScope {
         let mat = Matrix3x3::transform_matrix(text.pos, text.rot, Vector2::ONE);
         let pivot_offset = -self.pivot.scale(text.bounds_size);
 
-        let (mut cursor_v, line_spacing) = internal::cursor_v_data(text.ver_align, text.bounds_size.1, text.font_size, font.cfg().line_spacing, text.txt.lines().count());
-        for l in text.txt.lines() {
+        let lines = if text.word_wrapping {
+            LineSplit::new(text.txt, font, text.bounds_size.0, font.cfg().char_spacing, text.font_size, text.hor_align).collect::<Vec<_>>()
+        } else {
+            text.txt.split('\n').map(|x| (x, text.hor_align)).collect::<Vec<_>>()
+        };
+
+        let (mut cursor_v, line_spacing) = internal::cursor_v_data(text.ver_align, text.bounds_size.1, text.font_size, font.cfg().line_spacing, lines.len());
+        for (l, align) in lines {
             if cursor_v < -line_spacing {
                 break;
             }
             
-            let (mut cursor_h, space_size) = internal::cursor_h_data(l, font, text.hor_align, text.bounds_size.0, text.font_size);
+            if cursor_v > text.bounds_size.1 + line_spacing {
+                cursor_v -= text.font_size;
+                cursor_v -= line_spacing;
+                continue;
+            }
+
+            let (mut cursor_h, space_size) = internal::cursor_h_data(l, font, align, text.bounds_size.0, text.font_size);
             let char_spacing = font.cfg().char_spacing * text.font_size;
             for c in l.chars() {
                 if c.is_whitespace() {
@@ -219,13 +231,16 @@ impl RenderScope {
                     cursor_h += char_spacing;
                     continue;
                 }
-                
+
                 let end_cursor = cursor_h + font.char_width(c) * text.font_size;
                 if end_cursor > text.bounds_size.0 + char_spacing {
                     break;
                 }
 
-                font.draw_char(c, Vector2(cursor_h, cursor_v) + pivot_offset, &mat, text.tint, text.font_size, self);
+                if cursor_h > -char_spacing {
+                    font.draw_char(c, Vector2(cursor_h, cursor_v) + pivot_offset, &mat, text.tint, text.font_size, self);
+                }
+                
                 cursor_h = end_cursor;
                 cursor_h += char_spacing;
             }
@@ -328,7 +343,7 @@ impl RenderScope {
 }
 
 mod internal {
-    use crate::{graphics::ui::text::{font::Font, precalc::{Len, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, Matrix3x3, Vector2}, non_implemented};
+    use crate::{crash, graphics::ui::text::{font::Font, precalc::{LenComm, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, Matrix3x3, Vector2}};
 
     pub fn convert_vert_data<T>(src: &[T]) -> &[f32] {
         let mul = std::mem::size_of::<T>() / std::mem::size_of::<f32>();
@@ -376,8 +391,9 @@ mod internal {
         let iter = LenLexer::new(line, font);
         let (mut wordlen, mut spacelen, word_last, space_counts) = iter.fold((0.0f32, 0.0f32, false, 0), |mut accum, item| {
             match item {
-                Len::Word(x) => { accum.0 += x; accum.2 = true; },
-                Len::Space(x) => { accum.1 += x; accum.2 = false; accum.3 += 1 },
+                (LenComm::Word(x), _) => { accum.0 += x; accum.2 = true; },
+                (LenComm::Space(x), _) => { accum.1 += x; accum.2 = false; accum.3 += 1 },
+                (LenComm::LineBreak, _) => { }
             };
             accum
         });
@@ -393,7 +409,7 @@ mod internal {
             HorTextAlignment::Left => (0.0, default_space),
             HorTextAlignment::Center => ((bounds - (wordlen + spacelen) * font_size) * 0.5, default_space),
             HorTextAlignment::Right => (bounds - (wordlen + spacelen) * font_size, default_space),
-            HorTextAlignment::Justified => non_implemented!("Justified not implemented"),
+            HorTextAlignment::Justified => crash!("Justified text is not real, do not let the elite lie to you."),
             HorTextAlignment::Expand => (0.0, (bounds - wordlen * font_size) / (space_counts as f32) - font.cfg().char_spacing * font_size),
         }
     }
