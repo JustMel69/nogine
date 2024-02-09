@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{SpriteAtlas, Sprite, SprRect}, Mode}, math::{Matrix3x3, Vector2}};
+use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{rect::URect, Matrix3x3, Vector2}, unwrap_res};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -161,7 +161,52 @@ pub struct MonospaceData {
     char_width: f32,
 }
 
-pub struct MSDFFont;
+pub struct RasterFont {
+    tex: Texture,
+    charset: HashMap<char, URect>,
+    origins: HashMap<char, (i32, i32)>,
+    cfg: FontCfg,
+}
+
+impl RasterFont {
+    pub fn new(data: &[u8], quality: f32, filtering: TextureFiltering, cfg: FontCfg) -> Self {
+        let font = unwrap_res!(fontdue::Font::from_bytes(data, fontdue::FontSettings::default()));
+        let characters = font.chars().keys();
+
+        let mut builder = AtlasBuilder::new(TextureFormat::R);
+        let mut origins = HashMap::new();
+
+        for &c in characters {
+            let (metrics, data) = font.rasterize(c, quality);
+
+            builder.push((metrics.height as u32, metrics.width as u32), &data, c);
+            origins.insert(c, (metrics.xmin, metrics.ymin));
+        }
+
+        let (tex, charset) = builder.bake(TextureCfg { filtering, wrapping: TextureWrapping::Clamp });
+        return Self { tex, charset, origins, cfg };
+    }
+}
+
+impl Font for RasterFont {
+    fn cfg(&self) -> &FontCfg {
+        &self.cfg
+    }
+
+    fn char_width(&self, c: char) -> f32 {
+        todo!()
+    }
+
+    fn sample_char(&self, c: char) -> Option<Sprite<'_>> {
+        todo!()
+    }
+}
+
+impl FontInternal for RasterFont {
+    fn draw_char(&self, c: char, offset: Vector2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
+        todo!()
+    }
+}
 
 pub(crate) trait FontInternal {
     fn draw_char(&self, c: char, offset: Vector2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope);

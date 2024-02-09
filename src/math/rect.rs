@@ -60,3 +60,27 @@ impl Rect {
         return Self(self.0 - fact, self.1 - fact, self.2 + fact * 2.0, self.3 + fact * 2.0);
     }
 }
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct URect(pub u32, pub u32, pub u32, pub u32);
+
+impl URect {
+    pub const IDENT: Self = Self(0, 0, 1, 1);
+
+    pub fn up(&self) -> u32 {
+        return self.1 + self.3;
+    }
+
+    pub fn down(&self) -> u32 {
+        return self.1;
+    }
+
+    pub fn right(&self) -> u32 {
+        return self.0 + self.2;
+    }
+
+    pub fn left(&self) -> u32 {
+        return self.0;
+    }
+}

@@ -1,10 +1,10 @@
 #[derive(Clone)]
-pub struct Heap<T: Ord> {
+pub struct Heap<T: PartialOrd> {
     vec: Vec<T>,
 }
 
-impl<T: Ord> Heap<T> {
-    pub fn new() -> Self {
+impl<T: PartialOrd> Heap<T> {
+    pub const fn new() -> Self {
         return Self { vec: Vec::new() };
     }
 
@@ -39,6 +39,25 @@ impl<T: Ord> Heap<T> {
 
     pub fn len(&self) -> usize {
         return self.vec.len();
+    }
+
+    pub fn capacity(&self) -> usize {
+        return self.vec.capacity();
+    }
+
+    /// Warning! Items will not come out ordered.
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        return self.vec.iter();
+    }
+
+    pub fn into_ordered_vec(mut self) -> Vec<T> {
+        let mut res = Vec::with_capacity(self.capacity());
+
+        while let Some(x) = self.pop() {
+            res.push(x);
+        }
+
+        return res;
     }
 
     fn sink_down(&mut self, mut index: usize) {

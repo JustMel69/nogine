@@ -96,7 +96,7 @@ impl<'a> Text<'a, SourcedFromGraphics> {
     }
 
     /// Drawws the text.
-    pub fn draw(&mut self) -> (Quad, Option<TextMetadata>) {
+    pub fn draw(&mut self) -> (Quad, Option<()>) {
         if matches!(self.hor_align, HorTextAlignment::Justified) {
             assert_expr!(self.word_wrapping, "Word wrapping must be enabled for justified text!");
         }

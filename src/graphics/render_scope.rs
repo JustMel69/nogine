@@ -76,6 +76,8 @@ impl RenderScope {
         let stats = self.render_internal(&mut rt, false, pipeline);
         unsafe { rt.forget_tex() };
 
+        texture.invalidate_data();
+
         return stats;
     }
 
@@ -193,7 +195,7 @@ impl RenderScope {
         self.batch_data.send(self.render_target, state, &vert_data, tri_data);
     }
 
-    pub(super) fn draw_text<T>(&mut self, text: &Text<'_, T>) -> (Quad, Option<TextMetadata>) {
+    pub(super) fn draw_text<T>(&mut self, text: &Text<'_, T>) -> (Quad, Option<()>) {
         assert_expr!(text.font.is_some(), "A font was not provided!");
 
         let bounds_quad = {

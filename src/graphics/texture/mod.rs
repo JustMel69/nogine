@@ -7,6 +7,8 @@ use crate::{assert_expr, color::BColor4, math::Rect, Res};
 
 use super::super::gl_call;
 
+pub mod atlasgen;
+
 #[derive(Debug, Error)]
 pub enum TextureError {
     #[error("{0}")]
@@ -150,6 +152,11 @@ impl Texture {
         let px = Pixels { inner: x, res: self.dims };
         return Some(func(px));
     }
+
+    /// Removes the texture data from RAM.
+    pub fn invalidate_data(&mut self) {
+        self.data = None;
+    }
 }
 
 impl PartialEq for Texture {
@@ -215,32 +222,6 @@ impl SpriteAtlas {
     pub fn to_freesample(mut self) -> Self {
         self.sprite_dims = (1, 1);
         return self;
-    }
-}
-
-mod internal {
-    use super::{TextureWrapping, TextureFiltering, TextureFormat};
-
-    pub fn wrap_filter_fmt(wrapping: TextureWrapping, filtering: TextureFiltering, fmt: TextureFormat) -> (u32, u32, u32) {
-        let wrapping = match wrapping {
-            TextureWrapping::Clamp => gl::CLAMP_TO_EDGE,
-            TextureWrapping::Repeat => gl::REPEAT,
-            TextureWrapping::Wrap => gl::MIRRORED_REPEAT,
-        };
-
-        let filtering = match filtering {
-            TextureFiltering::Closest => gl::NEAREST,
-            TextureFiltering::Linear => gl::LINEAR,
-        };
-
-        let internal_fmt = match fmt {
-            TextureFormat::R => gl::RED,
-            TextureFormat::RA => gl::RG,
-            TextureFormat::RGB => gl::RGB,
-            TextureFormat::RGBA => gl::RGBA,
-        };
-
-        return (wrapping, filtering, internal_fmt);
     }
 }
 
@@ -325,5 +306,32 @@ impl<'a> Pixels<'a> {
 
     pub fn res(&self) -> (u32, u32) {
         self.res
+    }
+}
+
+
+mod internal {
+    use super::{TextureWrapping, TextureFiltering, TextureFormat};
+
+    pub fn wrap_filter_fmt(wrapping: TextureWrapping, filtering: TextureFiltering, fmt: TextureFormat) -> (u32, u32, u32) {
+        let wrapping = match wrapping {
+            TextureWrapping::Clamp => gl::CLAMP_TO_EDGE,
+            TextureWrapping::Repeat => gl::REPEAT,
+            TextureWrapping::Wrap => gl::MIRRORED_REPEAT,
+        };
+
+        let filtering = match filtering {
+            TextureFiltering::Closest => gl::NEAREST,
+            TextureFiltering::Linear => gl::LINEAR,
+        };
+
+        let internal_fmt = match fmt {
+            TextureFormat::R => gl::RED,
+            TextureFormat::RA => gl::RG,
+            TextureFormat::RGB => gl::RGB,
+            TextureFormat::RGBA => gl::RGBA,
+        };
+
+        return (wrapping, filtering, internal_fmt);
     }
 }
