@@ -1,11 +1,13 @@
 use std::ops::{Add, Mul};
 
+pub mod vector3;
 pub mod vector2;
 pub mod mat3x3;
 pub mod rect;
 pub mod quad;
 
 // reexports to not break literally everything
+pub use vector3::Vector3;
 pub use vector2::Vector2;
 pub use mat3x3::Matrix3x3;
 pub use rect::Rect;
