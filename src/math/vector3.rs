@@ -112,12 +112,20 @@ impl Vector3 {
     /// Returns the vector with a magnitude of 1.
     pub fn normalized(self) -> Self {
         let mag = self.magnitude();
+        if mag == 0.0 {
+            return self;
+        }
+
         return Self(self.0 / mag, self.1 / mag, self.2 / mag);
     }
 
     /// Returns the vector divided by the squared magnitude.
     pub fn inverted(self) -> Self {
         let sqr_mag = self.dot(self);
+        if sqr_mag == 0.0 {
+            return self;
+        }
+
         return Self(self.0 / sqr_mag, self.1 / sqr_mag, self.2 / sqr_mag);
     }
 
