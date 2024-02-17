@@ -1,5 +1,4 @@
 #![feature(const_fn_floating_point_arithmetic)]
-#![feature(const_maybe_uninit_zeroed)]
 
 pub mod window;
 pub mod input;
