@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{Res, input::Input, graphics::{Graphics, RenderStats, pipeline::{RenderPipeline, DefaultRenderPipeline}}, audio::Audio, logging::Logger, log_info, assert_expr, unwrap_opt};
+use crate::{audio::Audio, graphics::{pipeline::{DefaultRenderPipeline, RenderPipeline}, Graphics, RenderStats}, input::Input, log_info, log_warn, logging::Logger, unwrap_opt, Res};
 
 use super::gl_call;
 
@@ -119,9 +119,9 @@ impl Window {
         Input::flush();
         self.handle_events();
 
-        if let Some(target_framerate) = self.target_framerate {
+        /*if let Some(target_framerate) = self.target_framerate {
             self.force_framerate(target_framerate);
-        }
+        }*/
         self.ts = self.last_frame.elapsed().as_secs_f32();
         self.last_frame = Instant::now();
     }
@@ -217,7 +217,7 @@ impl Window {
         self.window.swap_buffers();
     }
 
-    fn force_framerate(&self, target_framerate: f32) {
+    /*fn force_framerate(&self, target_framerate: f32) {
         assert_expr!(target_framerate > 0.0, "Target framerate must be greater than 0");
         
         let target_ts = 1.0 / target_framerate;
@@ -225,10 +225,11 @@ impl Window {
         loop {
             let ts = self.last_frame.elapsed().as_secs_f32();
             if ts > target_ts {
+                std::thread::sleep(Duration::from_millis(1));
                 return;
             }
         }
-    }
+    }*/
 
     pub fn set_vsync(&mut self, vsync: bool) {
         self.glfw.set_swap_interval(glfw::SwapInterval::Sync(if vsync { 1 } else { 0 }))
@@ -240,8 +241,10 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_target_framerate(&mut self, target_framerate: Option<f32>) {
-        self.target_framerate = target_framerate;
+    #[deprecated = "Framerate locking is currently not supported, enable vsync instead."]
+    pub fn set_target_framerate(&mut self, _target_framerate: Option<f32>) {
+        log_warn!("Framerate locking is currently not supported, enable vsync instead.")
+        //self.target_framerate = target_framerate;
     }
 
     #[inline]
