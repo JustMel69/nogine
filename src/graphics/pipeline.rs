@@ -1,4 +1,6 @@
-use crate::{color::Color4, graphics::{buffers::{GlVAO, GlBuffer}, verts, DefaultMaterials}, assert_expr, math::Matrix3x3};
+use std::f32::consts::E;
+
+use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::Matrix3x3};
 
 use super::{gl_call, batch::TargetBatchData, RenderStats, texture::{TextureFiltering, Texture}, BlendingMode, material::Material};
 
@@ -163,11 +165,11 @@ impl RenderTexture {
         let vao = GlVAO::new();
         vao.bind();
 
-        let vbo = GlBuffer::new_vbo();
-        vbo.set_data_from_slice(&vert_data);
+        let vbo = GlBuffer::new(&vert_data, GlBufferKind::VBO, GlBufferUsage::StaticDraw);
+        let ebo = GlBuffer::new(&TRI_DATA, GlBufferKind::EBO, GlBufferUsage::StaticDraw);
 
-        let ebo = GlBuffer::new_ebo();
-        ebo.set_data_from_slice(&TRI_DATA);
+        vbo.bind();
+        ebo.bind();
 
         verts::set_vertex_attribs(&[2, 2, 1]);
         source.use_texture(0);

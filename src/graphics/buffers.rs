@@ -4,7 +4,7 @@ use crate::assert_expr;
 
 use super::super::gl_call;
 
-pub struct GlBuffer {
+/*pub struct GlBuffer {
     id: gltyp::GLuint,
     kind: gltyp::GLenum,
 }
@@ -40,7 +40,7 @@ impl Drop for GlBuffer {
     fn drop(&mut self) {
         gl_call!(gl::DeleteBuffers(1, &self.id));
     }
-}
+}*/
 
 
 pub struct GlVAO {

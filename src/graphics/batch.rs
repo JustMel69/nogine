@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3, assert_expr, utils::ptr_slice::PtrSlice};
 
-use super::{buffers::{GlBuffer, GlVAO}, texture::{TextureCore, Texture}, gl_call, BlendingMode, material::Material};
+use super::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, gl_call, material::Material, texture::{Texture, TextureCore}, BlendingMode};
 
 pub struct RefBatchState {
     pub material: Material,
@@ -62,11 +62,8 @@ impl BatchMesh {
         let vao = GlVAO::new();
         vao.bind();
 
-        let vbo = GlBuffer::new_vbo();
-        vbo.set_data_from_slice(&self.verts);
-
-        let ebo = GlBuffer::new_ebo();
-        ebo.set_data_from_slice(&self.tris);
+        let vbo = GlBuffer::new(&self.verts, GlBufferKind::VBO, GlBufferUsage::StaticDraw);
+        let ebo = GlBuffer::new(&self.tris, GlBufferKind::EBO, GlBufferUsage::StaticDraw);
 
         return BatchProduct { vao, vbo, ebo, trilen: self.tris.len() as i32, state: self.state };
     }
