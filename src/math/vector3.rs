@@ -1,4 +1,6 @@
-use std::{ops::{Add, AddAssign, Sub, Neg, Mul, Div}, fmt::Display};
+use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x4, num::SimdFloat}};
+
+use super::Vector2;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector3(pub f32, pub f32, pub f32);
@@ -9,9 +11,9 @@ impl Vector3 {
     pub const DOWN: Self = Self::down(1.0);
     pub const RIGHT: Self = Self::right(1.0);
     pub const LEFT: Self = Self::left(1.0);
+    pub const ONE: Self = Self::one(1.0);
     pub const FORW: Self = Self::forw(1.0);
     pub const BACK: Self = Self::back(1.0);
-    pub const ONE: Self = Self::one(1.0);
 
     pub const fn up(fact: f32) -> Self {
         return Self(0.0, fact, 0.0);
@@ -41,9 +43,9 @@ impl Vector3 {
         return Self(fact, fact, fact);
     }
 
-    /*/// Creates a vector in the local space of a basis
-    pub const fn local(x: f32, y: f32, z: f32, basis: (Vector3, Vector3, Vector3)) -> Self {
-        return Vector3(x * basis.0.0 + y * basis.1.0, x * basis.0.1 + y * basis.1.1)
+    /// Creates a vector in the local space of a basis
+    /*pub const fn local(x: f32, y: f32, basis: (Vector2, Vector2)) -> Self {
+        return Vector2(x * basis.0.0 + y * basis.1.0, x * basis.0.1 + y * basis.1.1)
     }*/
 
 
@@ -58,6 +60,20 @@ impl Vector3 {
     pub fn z(self) -> f32 {
         return self.2;
     }
+
+    
+    pub fn xy(self) -> Vector2 {
+        return Vector2(self.0, self.1);
+    }
+
+    pub fn yz(self) -> Vector2 {
+        return Vector2(self.1, self.2);
+    }
+
+    pub fn xz(self) -> Vector2 {
+        return Vector2(self.0, self.2);
+    }
+
 
     pub fn set_x(&mut self, x: f32) {
         self.0 = x;
@@ -83,17 +99,17 @@ impl Vector3 {
         return Self(0.0, 0.0, self.2);
     }
 
-    pub fn cross(self, r: Self) -> Self {
-        return Self(self.1 * r.2 - r.1 * self.2, -self.0 * r.2 + r.0 * self.2, self.0 * r.1 - r.0 * self.1);
+    /*pub fn cross(self) -> Self {
+        return Self(self.1, -self.0);
     }
 
-    /*/// Rotates the vector by the rotation provided in radians.<br>
+    /// Rotates the vector by the rotation provided in radians.<br>
     /// For rotations that need to match visuals, use `rotate_cw`
     pub fn rotate(self, rot: f32) -> Self {
         return Self(self.0 * rot.cos() + self.1 * rot.sin(), self.0 * rot.sin() - self.1 * rot.cos());
-    }*/
+    }
 
-    /*/// Rotates the vector by the specified rotation, but in a way that matches up with visual rotations.
+    /// Rotates the vector by the specified rotation, but in a way that matches up with visual rotations.
     pub fn rotate_cw(self, rot: f32) -> Self {
         let rotated = self.rotate(rot);
         return Vector2(rotated.0, -rotated.1);
@@ -101,12 +117,20 @@ impl Vector3 {
 
     /// Performs the dot product between two vectors.
     pub fn dot(self, other: Self) -> f32 {
-        return self.0 * other.0 + self.1 * other.1 + self.2 * other.2;
+        return (self.to_simd() * other.to_simd()).reduce_sum();
+    }
+
+    pub fn sqr_magnitude(self) -> f32 {
+        return self.dot(self);
     }
 
     /// Returns the magnitude of the vector.
     pub fn magnitude(self) -> f32 {
-        return (self.0 * self.0 + self.1 * self.1 + self.2 * self.2).sqrt();
+        if self == Self::ZERO {
+            return 0.0;
+        }
+
+        return (self.to_simd() * self.to_simd()).reduce_sum().sqrt();
     }
 
     /// Returns the vector with a magnitude of 1.
@@ -116,7 +140,7 @@ impl Vector3 {
             return self;
         }
 
-        return Self(self.0 / mag, self.1 / mag, self.2 / mag);
+        return self / mag;
     }
 
     /// Returns the vector divided by the squared magnitude.
@@ -126,22 +150,22 @@ impl Vector3 {
             return self;
         }
 
-        return Self(self.0 / sqr_mag, self.1 / sqr_mag, self.2 / sqr_mag);
+        return self / sqr_mag;
     }
 
     /// Multiplies the vectors component-wise
     pub fn scale(self, other: Self) -> Self {
-        return Self(self.0 * other.0, self.1 * other.1, self.2 * other.2);
+        return Self::from_simd(self.to_simd() * other.to_simd());
     }
 
     /// Divides the vectors component-wise
     pub fn inv_scale(self, other: Self) -> Self {
-        return Self(self.0 / other.0, self.1 / other.1, self.2 / other.2);
+        return Self::from_simd(self.to_simd() / other.to_simd());
     }
 
     /// Inverts each component
     pub fn inv_dims(self) -> Self {
-        return Self(1.0 / self.0, 1.0 / self.1, 1.0 / self.2);
+        return Self::from_simd(f32x4::splat(1.0) / self.to_simd());
     }
 
     pub fn lerp(self, other: Self, fact: f32) -> Self {
@@ -149,11 +173,57 @@ impl Vector3 {
     }
 
     pub fn average(slice: &[Self]) -> Self {
-        let mut res = Vector3::ZERO;
+        let mut res = Self::ZERO;
         for v in slice {
             res += *v;
         }
         return res / slice.len() as f32;
+    }
+
+    pub fn dist_to(self, other: Self) -> f32 {
+        (self - other).magnitude()
+    }
+
+    pub fn sqr_dist_to(self, other: Self) -> f32 {
+        (self - other).sqr_magnitude()
+    }
+
+
+    pub fn min(self, other: Self) -> Self {
+        Self::from_simd(self.to_simd().simd_min(other.to_simd()))
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        Self::from_simd(self.to_simd().simd_max(other.to_simd()))
+    }
+
+    pub fn clamp(self, min: Self, max: Self) -> Self {
+        self.max(min).min(max)
+    }
+
+    
+    pub fn min_mag(self, other: f32) -> Self {
+        let mag = self.magnitude();
+        return self / mag * mag.min(other);
+    }
+
+    pub fn max_mag(self, other: f32) -> Self {
+        let mag = self.magnitude();
+        return self / mag * mag.max(other);
+    }
+
+    pub fn clamp_mag(self, min: f32, max: f32) -> Self {
+        let mag = self.magnitude();
+        return self / mag * mag.clamp(min, max);
+    }
+
+
+    pub fn to_simd(self) -> f32x4 {
+        f32x4::from_array([self.0, self.1, self.2, 0.0])
+    }
+
+    pub fn from_simd(simd: f32x4) -> Self {
+        Self(simd[0], simd[1], simd[2])
     }
 }
 
@@ -161,7 +231,7 @@ impl Add for Vector3 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        return Self(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2);
+        return Self::from_simd(self.to_simd() + rhs.to_simd());
     }
 }
 
@@ -175,7 +245,8 @@ impl Sub for Vector3 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        return Self(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2);
+        return Self::from_simd(self.to_simd() - rhs.to_simd());
+
     }
 }
 
@@ -183,7 +254,7 @@ impl Neg for Vector3 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        return Self(-self.0, -self.1, -self.2);
+        return Self::from_simd(-self.to_simd());
     }
 }
 
@@ -191,7 +262,7 @@ impl Mul<f32> for Vector3 {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        return Self(self.0 * rhs, self.1 * rhs, self.2 * rhs);
+        return Self::from_simd(self.to_simd() * f32x4::splat(rhs));
     }
 }
 
@@ -199,7 +270,7 @@ impl Div<f32> for Vector3 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
-        return Self(self.0 / rhs, self.1 / rhs, self.2 / rhs);
+        return Self::from_simd(self.to_simd() / f32x4::splat(rhs));
     }
 }
 

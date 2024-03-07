@@ -1,4 +1,5 @@
 #![feature(const_fn_floating_point_arithmetic)]
+#![feature(portable_simd)]
 
 pub mod window;
 pub mod input;
