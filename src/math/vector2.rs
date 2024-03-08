@@ -180,6 +180,15 @@ impl Vector2 {
     }
 
 
+    pub fn max_axis(self) -> f32 {
+        return self.to_simd().reduce_max();
+    }
+
+    pub fn min_axis(self) -> f32 {
+        return self.to_simd().reduce_min();
+    }
+
+
     pub fn to_simd(self) -> f32x2 {
         f32x2::from_array([self.0, self.1])
     }

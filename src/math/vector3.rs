@@ -218,8 +218,21 @@ impl Vector3 {
     }
 
 
+    pub fn max_axis(self) -> f32 {
+        return self.to_simd_ext(f32::NEG_INFINITY).reduce_max();
+    }
+
+    pub fn min_axis(self) -> f32 {
+        return self.to_simd_ext(f32::INFINITY).reduce_min();
+    }
+
+
     pub fn to_simd(self) -> f32x4 {
         f32x4::from_array([self.0, self.1, self.2, 0.0])
+    }
+
+    pub fn to_simd_ext(self, w: f32) -> f32x4 {
+        f32x4::from_array([self.0, self.1, self.2, w])
     }
 
     pub fn from_simd(simd: f32x4) -> Self {
