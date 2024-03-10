@@ -4,6 +4,8 @@ use crate::{color::{Color4, Color}, math::{Vector2, Rect, quad::Quad}, assert_ex
 
 use self::font::Font;
 
+use super::UI;
+
 pub mod font;
 pub(in crate::graphics) mod precalc;
 
@@ -122,8 +124,19 @@ impl<'a> Text<'a, SourcedFromUI> {
     }
 
     /// Draws the text.
-    pub fn draw(&mut self) -> (Rect, Option<TextMetadata>) {
-        todo!()
+    pub fn draw(&mut self) -> (Rect, Option<()>) {
+        if matches!(self.hor_align, HorTextAlignment::Justified) {
+            assert_expr!(self.word_wrapping, "Word wrapping must be enabled for justified text!");
+        }
+
+        if matches!(self.hor_align, HorTextAlignment::Expand) {
+            assert_expr!(!self.word_wrapping, "Word wrapping must be disabled for horizontal expand text!");
+        }
+
+        return UI::using_singleton(|ui| {
+            let res = ui.scope.draw_text(self);
+            return (ui.quad_to_rect(res.0), res.1)
+        });
     }
 }
 
