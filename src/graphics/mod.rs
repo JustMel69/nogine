@@ -21,6 +21,9 @@ pub mod consts;
 mod buffers;
 mod verts;
 mod batch;
+mod gl_bindings {
+    pub mod buffer;
+}
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());

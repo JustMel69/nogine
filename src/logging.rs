@@ -65,6 +65,13 @@ macro_rules! assert_expr {
             std::process::exit(1);
         }
     };
+
+    ($e:expr) => {
+        if !$e {
+            $crate::log_error!("Assert failed.");
+            std::process::exit(1);
+        }
+    };
 }
 
 #[macro_export]

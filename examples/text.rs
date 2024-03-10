@@ -31,7 +31,8 @@ fn main() {
         FontCfg { monospace: false, char_spacing: 1.0 / 9.0, line_spacing: 1.0 / 9.0, word_spacing: 5.0 / 9.0, ..Default::default() }
     );
 
-    window.set_target_framerate(Some(60.0));
+    //window.set_target_framerate(Some(60.0));
+    window.set_vsync(true);
     while window.is_running() {
         window.pre_tick(None);
         

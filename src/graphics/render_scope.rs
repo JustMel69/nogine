@@ -1,8 +1,8 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, log_info, math::{Matrix3x3, Vector2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
+use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{Matrix3x3, Vector2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
 
-use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::{Text, TextMetadata}}};
+use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::Text}};
 
 pub struct RenderScope {
     pub(super) is_global: bool,

@@ -83,7 +83,7 @@ mod internal {
 
     impl<'a, T> Clone for AtlasLineIter<'a, T> {
         fn clone(&self) -> Self {
-        Self { slice: self.slice.clone(), index: self.index.clone(), max_width: self.max_width.clone() }
+        Self { slice: self.slice, index: self.index.clone(), max_width: self.max_width.clone() }
     }
     }
 

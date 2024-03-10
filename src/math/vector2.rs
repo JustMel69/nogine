@@ -1,4 +1,4 @@
-use std::{ops::{Add, AddAssign, Sub, Neg, Mul, Div}, fmt::Display};
+use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x2, num::SimdFloat}};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector2(pub f32, pub f32);
@@ -79,12 +79,20 @@ impl Vector2 {
 
     /// Performs the dot product between two vectors.
     pub fn dot(self, other: Self) -> f32 {
-        return self.0 * other.0 + self.1 * other.1;
+        return (self.to_simd() * other.to_simd()).reduce_sum();
+    }
+
+    pub fn sqr_magnitude(self) -> f32 {
+        return self.dot(self);
     }
 
     /// Returns the magnitude of the vector.
     pub fn magnitude(self) -> f32 {
-        return (self.0 * self.0 + self.1 * self.1).sqrt();
+        if self == Self::ZERO {
+            return 0.0;
+        }
+
+        return (self.to_simd() * self.to_simd()).reduce_sum().sqrt();
     }
 
     /// Returns the vector with a magnitude of 1.
@@ -94,7 +102,7 @@ impl Vector2 {
             return self;
         }
 
-        return Self(self.0 / mag, self.1 / mag);
+        return self / mag;
     }
 
     /// Returns the vector divided by the squared magnitude.
@@ -104,22 +112,22 @@ impl Vector2 {
             return self;
         }
 
-        return Self(self.0 / sqr_mag, self.1 / sqr_mag);
+        return self / sqr_mag;
     }
 
     /// Multiplies the vectors component-wise
     pub fn scale(self, other: Self) -> Self {
-        return Self(self.0 * other.0, self.1 * other.1);
+        return Self::from_simd(self.to_simd() * other.to_simd());
     }
 
     /// Divides the vectors component-wise
     pub fn inv_scale(self, other: Self) -> Self {
-        return Self(self.0 / other.0, self.1 / other.1);
+        return Self::from_simd(self.to_simd() / other.to_simd());
     }
 
     /// Inverts each component
     pub fn inv_dims(self) -> Self {
-        return Self(1.0 / self.0, 1.0 / self.1);
+        return Self::from_simd(f32x2::splat(1.0) / self.to_simd());
     }
 
     pub fn lerp(self, other: Self, fact: f32) -> Self {
@@ -133,13 +141,68 @@ impl Vector2 {
         }
         return res / slice.len() as f32;
     }
+
+    pub fn dist_to(self, other: Self) -> f32 {
+        (self - other).magnitude()
+    }
+
+    pub fn sqr_dist_to(self, other: Self) -> f32 {
+        (self - other).sqr_magnitude()
+    }
+
+
+    pub fn min(self, other: Self) -> Self {
+        Self::from_simd(self.to_simd().simd_min(other.to_simd()))
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        Self::from_simd(self.to_simd().simd_max(other.to_simd()))
+    }
+
+    pub fn clamp(self, min: Self, max: Self) -> Self {
+        self.max(min).min(max)
+    }
+
+    
+    pub fn min_mag(self, other: f32) -> Self {
+        let mag = self.magnitude();
+        return self / mag * mag.min(other);
+    }
+
+    pub fn max_mag(self, other: f32) -> Self {
+        let mag = self.magnitude();
+        return self / mag * mag.max(other);
+    }
+
+    pub fn clamp_mag(self, min: f32, max: f32) -> Self {
+        let mag = self.magnitude();
+        return self / mag * mag.clamp(min, max);
+    }
+
+
+    pub fn max_axis(self) -> f32 {
+        return self.to_simd().reduce_max();
+    }
+
+    pub fn min_axis(self) -> f32 {
+        return self.to_simd().reduce_min();
+    }
+
+
+    pub fn to_simd(self) -> f32x2 {
+        f32x2::from_array([self.0, self.1])
+    }
+
+    pub fn from_simd(simd: f32x2) -> Self {
+        Self(simd[0], simd[1])
+    }
 }
 
 impl Add for Vector2 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        return Self(self.0 + rhs.0, self.1 + rhs.1);
+        return Self::from_simd(self.to_simd() + rhs.to_simd());
     }
 }
 
@@ -153,7 +216,8 @@ impl Sub for Vector2 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        return Self(self.0 - rhs.0, self.1 - rhs.1);
+        return Self::from_simd(self.to_simd() - rhs.to_simd());
+
     }
 }
 
@@ -161,7 +225,7 @@ impl Neg for Vector2 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        return Self(-self.0, -self.1);
+        return Self::from_simd(-self.to_simd());
     }
 }
 
@@ -169,7 +233,7 @@ impl Mul<f32> for Vector2 {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        return Self(self.0 * rhs, self.1 * rhs);
+        return Self::from_simd(self.to_simd() * f32x2::splat(rhs));
     }
 }
 
@@ -177,7 +241,7 @@ impl Div<f32> for Vector2 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
-        return Self(self.0 / rhs, self.1 / rhs);
+        return Self::from_simd(self.to_simd() / f32x2::splat(rhs));
     }
 }
 

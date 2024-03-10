@@ -10,7 +10,8 @@ fn main() {
 
     let mut pan = 0.0;
 
-    window.set_target_framerate(Some(60.0));
+    //window.set_target_framerate(Some(60.0));
+    window.set_vsync(true);
 
     while window.is_running() {
         window.pre_tick(None);
