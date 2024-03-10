@@ -235,8 +235,13 @@ impl UI {
     }
 
     /// Creates a new text.
-    pub fn text(pos: Vector2, bounds_size: Vector2, text: &str) -> Text<'_, SourcedFromUI> {
-        let tint = { UI_SINGLETON.read().unwrap().tint };
+    pub fn text(origin: Origin, pos: Vector2, bounds_size: Vector2, text: &str) -> Text<'_, SourcedFromUI> {
+        let mut writer = UI_SINGLETON.write().unwrap();
+        let tint = writer.tint;
+
+        writer.scope.pivot = origin.get_pivot();
+        let pos = writer.process_pos(origin, pos);
+        
         return Text::<'_, SourcedFromUI>::new(pos, bounds_size, tint, text);
     }
 
