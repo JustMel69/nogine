@@ -1,4 +1,4 @@
-use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::Matrix3x3};
+use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::{Matrix3x3, Rect}};
 
 use super::{gl_call, batch::TargetBatchData, RenderStats, texture::{TextureFiltering, Texture}, BlendingMode, material::Material};
 
@@ -138,16 +138,16 @@ impl RenderTexture {
         self.render_with_shader(source, &DefaultMaterials::def_blit_material(), blending, stats);
     }
 
-    pub fn combine_ext(&mut self, source: &Self, blending: BlendingMode, rect: ScreenRect, stats: &mut RenderStats) {
-        self.render_with_shader_ext(source, &DefaultMaterials::def_blit_material(), blending, rect, stats);
+    pub fn combine_ext(&mut self, source: &Self, blending: BlendingMode, rect: ScreenRect, source_uvs: Rect, stats: &mut RenderStats) {
+        self.render_with_shader_ext(source, &DefaultMaterials::def_blit_material(), blending, rect, source_uvs, stats);
     }
 
     /// Soure cannot be the Screen Render Texture.
     pub fn render_with_shader(&mut self, source: &Self, material: &Material, blending: BlendingMode, stats: &mut RenderStats) {
-        self.render_with_shader_ext(source, material, blending, ScreenRect::new((0, 0), (self.res.0 as i32, self.res.1 as i32)), stats);
+        self.render_with_shader_ext(source, material, blending, ScreenRect::new((0, 0), (self.res.0 as i32, self.res.1 as i32)), Rect::IDENT, stats);
     }
 
-    pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: ScreenRect, stats: &mut RenderStats) {
+    pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: ScreenRect, source_uvs: Rect, stats: &mut RenderStats) {
         assert_expr!(source.fbo != 0, "No source can be a Screen Render Texture");
         
         gl_call!(gl::Viewport(rect.l, rect.d, rect.r - rect.l, rect.u - rect.d));
@@ -155,7 +155,7 @@ impl RenderTexture {
         blending.apply();
         RenderTexture::bind(self);
 
-        let vert_data = [-1.0, -1.0, 0.0, 0.0, source.alpha, -1.0, 1.0, 0.0, 1.0, source.alpha, 1.0, 1.0, 1.0, 1.0, source.alpha, 1.0, -1.0, 1.0, 0.0, source.alpha];
+        let vert_data = [-1.0, -1.0, source_uvs.left(), source_uvs.down(), source.alpha, -1.0, 1.0, source_uvs.left(), source_uvs.up(), source.alpha, 1.0, 1.0, source_uvs.right(), source_uvs.up(), source.alpha, 1.0, -1.0, source_uvs.right(), source_uvs.down(), source.alpha];
         const TRI_DATA: [u32; 6] = [0, 1, 2, 2, 3, 0];
 
         material.enable();

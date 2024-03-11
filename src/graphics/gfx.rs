@@ -1,4 +1,4 @@
-use crate::math::Vector2;
+use crate::math::{Rect, Vector2};
 
 use super::{pipeline::RenderTexture, BlendingMode, RenderStats, Graphics};
 
@@ -11,7 +11,7 @@ pub fn integer_scaling(target: &mut RenderTexture, source: &RenderTexture, stats
     let scaling = integer_scaling::get_scaling(src_res, dst_res);
     let rect = integer_scaling::get_screen_rect(src_res, dst_res, scaling);
 
-    target.combine_ext(source, BlendingMode::AlphaMix, rect, stats);
+    target.combine_ext(source, BlendingMode::AlphaMix, rect, Rect::IDENT, stats);
 }
 
 /// Scales the provided screen position to get a screen position relative to the source texture instead of the window.<br>
