@@ -235,8 +235,13 @@ impl UI {
     }
 
     /// Creates a new text.
-    pub fn text(pos: Vector2, bounds_size: Vector2, text: &str) -> Text<'_, SourcedFromUI> {
-        let tint = { UI_SINGLETON.read().unwrap().tint };
+    pub fn text(origin: Origin, pos: Vector2, bounds_size: Vector2, text: &str) -> Text<'_, SourcedFromUI> {
+        let mut writer = UI_SINGLETON.write().unwrap();
+        let tint = writer.tint;
+
+        writer.scope.pivot = origin.get_pivot();
+        let pos = writer.process_pos(origin, pos);
+        
         return Text::<'_, SourcedFromUI>::new(pos, bounds_size, tint, text);
     }
 
@@ -303,6 +308,11 @@ impl UI {
         UI_SINGLETON.write().unwrap().scope.finalize_batch();
     }
 
+    pub(crate) fn using_singleton<T>(func: impl Fn(&mut UI) -> T) -> T {
+        let mut writer = UI_SINGLETON.write().unwrap();
+        return func(&mut writer);
+    }
+
     /// Converts from UI-space to scope-space
     fn process_pos(&self, origin: Origin, pos: Vector2) -> Vector2 {
         let origin_pivot = origin.get_pivot();
@@ -311,7 +321,7 @@ impl UI {
         return Vector2(pos.0, -pos.1) + pivot.scale(self.scope.cam_data.half_size * 2.0);
     }
 
-    fn quad_to_rect(&self, quad: Quad) -> Rect {
+    pub(crate) fn quad_to_rect(&self, quad: Quad) -> Rect {
         let mut pos = quad.ld;
         let size = quad.ru - quad.ld;
         pos.1 = -size.1 - pos.1;
