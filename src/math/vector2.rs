@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x2, num::SimdFloat}};
+use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x2, num::SimdFloat, StdFloat}};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector2(pub f32, pub f32);
@@ -186,6 +186,19 @@ impl Vector2 {
 
     pub fn min_axis(self) -> f32 {
         return self.to_simd().reduce_min();
+    }
+
+
+    pub fn floor(self) -> Self {
+        return Self::from_simd(self.to_simd().floor());
+    }
+
+    pub fn round(self) -> Self {
+        return Self::from_simd(self.to_simd().round());
+    }
+
+    pub fn ceil(self) -> Self {
+        return Self::from_simd(self.to_simd().ceil());
     }
 
 

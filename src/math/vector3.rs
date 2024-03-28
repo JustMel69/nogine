@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x4, num::SimdFloat}};
+use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x4, num::SimdFloat, StdFloat}};
 
 use super::Vector2;
 
@@ -224,6 +224,19 @@ impl Vector3 {
 
     pub fn min_axis(self) -> f32 {
         return self.to_simd_ext(f32::INFINITY).reduce_min();
+    }
+
+
+    pub fn floor(self) -> Self {
+        return Self::from_simd(self.to_simd().floor());
+    }
+
+    pub fn round(self) -> Self {
+        return Self::from_simd(self.to_simd().round());
+    }
+
+    pub fn ceil(self) -> Self {
+        return Self::from_simd(self.to_simd().ceil());
     }
 
 
