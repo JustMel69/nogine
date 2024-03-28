@@ -1,25 +1,29 @@
 use super::Vector2;
 
+// Instead of setting pos and size, we use start and end to avoid floating-point fuckeries, specially regarding uvs.
 #[derive(Debug, Clone, Copy)]
-pub struct Rect(pub f32, pub f32, pub f32, pub f32);
+pub struct Rect {
+    pub start: Vector2,
+    pub end: Vector2,
+}
 
 impl Rect {
-    pub const IDENT: Self = Rect(0.0, 0.0, 1.0, 1.0);
+    pub const IDENT: Self = Self { start: Vector2::ZERO, end: Vector2::ONE };
 
     pub fn up(&self) -> f32 {
-        return self.1 + self.3;
+        return self.end.1;
     }
 
     pub fn down(&self) -> f32 {
-        return self.1;
+        return self.start.1;
     }
 
     pub fn right(&self) -> f32 {
-        return self.0 + self.2;
+        return self.end.0;
     }
 
     pub fn left(&self) -> f32 {
-        return self.0;
+        return self.start.0;
     }
 
     pub fn lu(&self) -> Vector2 {
@@ -38,16 +42,16 @@ impl Rect {
         return Vector2(self.right(), self.down());
     }
 
-    pub fn pos(&self) -> Vector2 {
-        return Vector2(self.0, self.1)
+    pub fn center(&self) -> Vector2 {
+        return (self.start + self.end) / 2.0;
     }
 
     pub fn size(&self) -> Vector2 {
-        return Vector2(self.2, self.3);
+        return self.end - self.start;
     }
 
     pub fn sample(&self, pos: Vector2) -> Vector2 {
-        return pos.scale(self.size()) + self.pos();
+        return self.start.scale(Vector2::ONE - pos) + self.end.scale(pos);
     }
 
     pub fn contains(&self, pos: Vector2) -> bool {
@@ -57,7 +61,7 @@ impl Rect {
     }
 
     pub fn expand(self, fact: f32) -> Self {
-        return Self(self.0 - fact, self.1 - fact, self.2 + fact * 2.0, self.3 + fact * 2.0);
+        return Self { start: self.start - Vector2::one(fact), end: self.end + Vector2::one(fact) };
     }
 }
 

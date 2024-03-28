@@ -1,6 +1,6 @@
 use std::{sync::RwLock, collections::HashMap};
 
-use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{quad::Quad, Rect, Vector2}};
+use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{lerp, quad::Quad, Rect, Vector2}};
 
 use self::{internal::ActiveData, text::{Text, SourcedFromUI}};
 
@@ -190,8 +190,8 @@ impl UI {
 
         let xpos = [ quad.lu.0, quad.lu.0 + corner_dims.0, quad.ru.0 - corner_dims.0, quad.ru.0 ];
         let ypos = [ quad.ld.1, quad.ld.1 - corner_dims.1, quad.lu.1 + corner_dims.1, quad.lu.1 ];
-        let xuvs = [ rect.0, rect.0 + rect.2 * 1.0 / 3.0, rect.0 + rect.2 * 2.0 / 3.0, rect.0 + rect.2 ];
-        let yuvs = [ rect.1, rect.1 + rect.3 * 1.0 / 3.0, rect.1 + rect.3 * 2.0 / 3.0, rect.1 + rect.3 ];
+        let xuvs = [ rect.left(), lerp(rect.left(), rect.right(), 1.0 / 3.0), lerp(rect.left(), rect.right(), 2.0 / 3.0), rect.right() ];
+        let yuvs = [ rect.down(), lerp(rect.down(), rect.up(), 1.0 / 3.0), lerp(rect.down(), rect.up(), 2.0 / 3.0), rect.up() ];
 
         let verts = [
             Vert(Vector2(xpos[0], ypos[3]), tint, Vector2(xuvs[0], yuvs[0])),
@@ -341,11 +341,7 @@ impl UI {
     }
 
     pub(crate) fn quad_to_rect(&self, quad: Quad) -> Rect {
-        let mut pos = quad.ld;
-        let size = quad.ru - quad.ld;
-        pos.1 = -size.1 - pos.1;
-
-        return Rect(pos.0, pos.1, size.0, size.1);
+        return Rect { start: quad.ld, end: quad.ru };
     }
 }
 
