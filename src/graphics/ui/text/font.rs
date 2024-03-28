@@ -127,7 +127,7 @@ impl FontInternal for BitmapFont {
         
         if let Some(sprite) = self.sample_char(c) {
             let char_size = Vector2(self.char_width(c), 1.0) * font_size;
-            let char_quad = internal::make_quad(offset, char_size, mat);
+            let char_quad = internal::make_quad(offset, char_size, mat, scope.snapping.as_ref());
 
             let rect = sprite.rect().expand(-UV_RECT_EPSILON);
 
@@ -214,14 +214,23 @@ pub(crate) trait FontInternal {
 
 
 mod internal {
-    use crate::math::{quad::Quad, Matrix3x3, Vector2};
+    use crate::{graphics::render_scope::Snapping, math::{quad::Quad, Matrix3x3, Vector2}};
 
-    pub fn make_quad(offset: Vector2, size: Vector2, mat: &Matrix3x3) -> Quad {
-        return Quad {
-            ld: mat * (Vector2::ZERO + offset),
-            lu: mat * (size.yvec() + offset),
-            ru: mat * (size + offset),
-            rd: mat * (size.xvec() + offset),
+    pub fn make_quad(offset: Vector2, size: Vector2, mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
+        return if let Some(s) = snapping {
+            Quad {
+                ld: s.snap(mat * (Vector2::ZERO + offset)),
+                lu: s.snap(mat * (size.yvec() + offset)),
+                ru: s.snap(mat * (size + offset)),
+                rd: s.snap(mat * (size.xvec() + offset)),
+            }
+        } else {
+            Quad {
+                ld: mat * (Vector2::ZERO + offset),
+                lu: mat * (size.yvec() + offset),
+                ru: mat * (size + offset),
+                rd: mat * (size.xvec() + offset),
+            }
         };
     }
 
