@@ -471,6 +471,6 @@ pub(super) struct Snapping {
 
 impl Snapping {
     pub(super) fn snap(&self, v: Vector2) -> Vector2 {
-        return (v / self.grid_size).floor() * self.grid_size;
+        return (v / self.grid_size).round() * self.grid_size;
     }
 }
