@@ -202,7 +202,7 @@ impl SpriteAtlas {
 
         let uv_rect = Rect {
             start: (Vector2::from(p_pos) + Vector2::one(0.1)).inv_scale(Vector2::from(tex_dims)),
-            end: (Vector2::from((p_pos.0 + p_size.0, p_pos.1 + p_size.1)) - Vector2::one(0.1)).inv_scale(Vector2::from(tex_dims)),
+            end: (Vector2::from((p_pos.0 + p_size.0, p_pos.1 + p_size.1)) + Vector2::one(0.1)).inv_scale(Vector2::from(tex_dims)),
         };
 
         return Sprite(&self.internal, uv_rect);
