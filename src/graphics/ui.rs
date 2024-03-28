@@ -1,6 +1,6 @@
 use std::{sync::RwLock, collections::HashMap};
 
-use crate::{assert_expr, math::{Vector2, quad::Quad, Rect}, graphics::{CamData, Mode}, color::{Color4, Color}, log_info, input::{MouseInput, Input}};
+use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{quad::Quad, Rect, Vector2}};
 
 use self::{internal::ActiveData, text::{Text, SourcedFromUI}};
 
@@ -302,6 +302,25 @@ impl UI {
 
         let size = UI_SINGLETON.read().unwrap().scope.cam_data.half_size * 2.0;
         return (size.0 as u32, size.1 as u32);
+    }
+
+    /// Sets snapping.
+    pub fn set_snapping(grid_size: f32, apply_to_cam: bool) {
+        assert_ui_enabled!();
+        UI_SINGLETON.write().unwrap().scope.set_snapping(Some(Snapping { grid_size, apply_to_cam }));
+    }
+
+    /// Clear snapping.
+    pub fn clear_snapping() {
+        assert_ui_enabled!();
+        UI_SINGLETON.write().unwrap().scope.set_snapping(None);
+    }
+
+    /// Gets snapping.
+    pub fn get_snapping() -> Option<(f32, bool)> {
+        assert_ui_enabled!();
+
+        UI_SINGLETON.read().unwrap().scope.snapping.as_ref().map(|x| (x.grid_size, x.apply_to_cam))
     }
 
     pub(crate) fn finalize_batch() {

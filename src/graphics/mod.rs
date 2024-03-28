@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use crate::{math::{Vector2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
-use self::{texture::{Texture, Sprite}, pipeline::{RenderPipeline, RenderTexture}, material::Material, render_scope::RenderScope, ui::{UI, text::{Text, SourcedFromGraphics}}};
+use self::{material::Material, pipeline::{RenderPipeline, RenderTexture}, render_scope::{RenderScope, Snapping}, texture::{Sprite, Texture}, ui::{text::{SourcedFromGraphics, Text}, UI}};
 
 use super::gl_call;
 
@@ -283,6 +283,21 @@ impl Graphics {
     /// Returns the pivot.
     pub fn get_pivot() -> Vector2 {
         return GRAPHICS.read().unwrap().active_scope.pivot;
+    }
+
+    /// Sets snapping.
+    pub fn set_snapping(grid_size: f32, apply_to_cam: bool) {
+        GRAPHICS.write().unwrap().active_scope.set_snapping(Some(Snapping { grid_size, apply_to_cam }));
+    }
+
+    /// Clear snapping.
+    pub fn clear_snapping() {
+        GRAPHICS.write().unwrap().active_scope.set_snapping(None);
+    }
+
+    /// Gets snapping.
+    pub fn get_snapping() -> Option<(f32, bool)> {
+        GRAPHICS.read().unwrap().active_scope.snapping.as_ref().map(|x| (x.grid_size, x.apply_to_cam))
     }
 
     /// Sets the camera parameters.
