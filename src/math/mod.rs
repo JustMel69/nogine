@@ -7,10 +7,10 @@ pub mod rect;
 pub mod quad;
 
 // reexports to not break literally everything
-pub use vector3::vec3;
+pub use vector3::*;
 pub use vector2::*;
 pub use mat3x3::mat3;
-pub use rect::Rect;
+pub use rect::*;
 
 
 pub fn lerp<T: Add<Output = T> + Mul<f32, Output = T>>(a: T, b: T, t: f32) -> T {

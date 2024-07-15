@@ -39,7 +39,7 @@ impl<T: Clone + Eq + Hash> AtlasBuilder<T> {
                 gl_call!(gl::TexSubImage2D(gl::TEXTURE_2D, 0, cursor_h as i32, cursor_v as i32, x.res.0 as i32, x.res.1 as i32, gl_fmt, gl::UNSIGNED_BYTE, x.data.as_ptr() as *const std::ffi::c_void));
                 cursor_h += x.res.0;
 
-                map.insert(x.id.clone(), URect(cursor_h, cursor_v, x.res.0, x.res.1));
+                map.insert(x.id.clone(), URect { start: uvec2(cursor_h, cursor_v), end: uvec2(x.res.0, x.res.1) });
             }
             cursor_v += height;
         }
