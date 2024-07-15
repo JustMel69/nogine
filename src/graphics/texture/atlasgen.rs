@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
-use crate::{gl_call, math::rect::URect, utils::heap::Heap};
+use crate::{gl_call, math::{rect::URect, uvec2}, utils::heap::Heap};
 
 use super::{Texture, TextureCfg, TextureFormat};
 
@@ -14,7 +14,7 @@ impl<T: Clone + Eq + Hash> AtlasBuilder<T> {
         Self { pieces: Heap::new(), format }
     }
 
-    pub fn push(&mut self, res: (u32, u32), data: &[u8], id: T) {
+    pub fn push(&mut self, res: uvec2, data: &[u8], id: T) {
         self.pieces.push(internal::AtlasPiece { res, data: data.into(), id });
     }
 
@@ -25,7 +25,7 @@ impl<T: Clone + Eq + Hash> AtlasBuilder<T> {
         let pieces = self.pieces.into_ordered_vec();
         
         let iter = internal::AtlasLineIter::new(&pieces, max_width);
-        let res = (max_width as u32, iter.clone().map(|x| x.height).sum::<u32>());
+        let res = uvec2(max_width, iter.clone().map(|x| x.height).sum::<u32>());
 
         let (_, _, gl_fmt) = super::internal::wrap_filter_fmt(cfg.wrapping, cfg.filtering, self.format);
         
@@ -51,8 +51,10 @@ impl<T: Clone + Eq + Hash> AtlasBuilder<T> {
 mod internal {
     use std::ops::Range;
 
+    use crate::math::uvec2;
+
     pub struct AtlasPiece<T> {
-        pub res: (u32, u32),
+        pub res: uvec2,
         pub data: Box<[u8]>,
         pub id: T,
     }

@@ -3,7 +3,7 @@ use std::{sync::mpsc::Receiver, time::Instant};
 use glfw::Context as GlfwContext;
 use thiserror::Error;
 
-use crate::{audio::Audio, graphics::{pipeline::{DefaultRenderPipeline, RenderPipeline}, Graphics, RenderStats}, input::Input, log_info, log_warn, logging::Logger, unwrap_opt, Res};
+use crate::{audio::Audio, graphics::{pipeline::{DefaultRenderPipeline, RenderPipeline}, Graphics, RenderStats}, input::Input, log_info, log_warn, logging::Logger, math::uvec2, unwrap_opt, Res};
 
 use super::gl_call;
 
@@ -21,14 +21,14 @@ pub enum WindowMode {
 }
 
 pub struct WindowCfg<'a> {
-    pub res: (u32, u32),
+    pub res: uvec2,
     pub title: &'a str,
     pub mode: WindowMode,
     pub main: bool,
 }
 
 impl<'a> WindowCfg<'a> {
-    pub fn res(mut self, val: impl Into<(u32, u32)>) -> Self {
+    pub fn res(mut self, val: impl Into<uvec2>) -> Self {
         self.res = val.into();
         return self;
     }
@@ -71,7 +71,7 @@ impl<'a> WindowCfg<'a> {
 
 impl<'a> Default for WindowCfg<'a> {
     fn default() -> Self {
-        Self { res: (1280, 720), title: "Nogine Window", mode: WindowMode::Windowed, main: false }
+        Self { res: uvec2(1280, 720), title: "Nogine Window", mode: WindowMode::Windowed, main: false }
     }
 }
 
@@ -83,7 +83,7 @@ pub struct Window {
     window: glfw::Window,
     events: Receiver<(f64, glfw::WindowEvent)>,
     glfw: glfw::Glfw,
-    def_res: (u32, u32),
+    def_res: uvec2,
 
     last_frame: Instant,
     target_framerate: Option<f32>,
@@ -142,13 +142,13 @@ impl Window {
     }
 
     #[inline]
-    pub fn get_size(&self) -> (u32, u32) {
+    pub fn get_size(&self) -> uvec2 {
         let x = self.window.get_size();
-        return (x.0 as u32, x.1 as u32)
+        return uvec2(x.0 as u32, x.1 as u32)
     }
 
     #[inline]
-    pub fn set_size(&mut self, size: (u32, u32)) {
+    pub fn set_size(&mut self, size: uvec2) {
         self.window.set_size(size.0 as i32, size.1 as i32);
     }
 
@@ -159,8 +159,8 @@ impl Window {
 
     #[inline]
     pub fn aspect_ratio(&self) -> f32 {
-        let (w, h) = self.get_size();
-        return (w as f32) / (h as f32);
+        let res = self.get_size();
+        return (res.0 as f32) / (res.1 as f32);
     }
 
     #[inline]

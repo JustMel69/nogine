@@ -1,6 +1,6 @@
 use std::{sync::RwLock, collections::HashMap};
 
-use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{lerp, quad::Quad, Rect, vec2}};
+use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{lerp, quad::Quad, uvec2, vec2, Rect}};
 
 use self::{internal::ActiveData, text::{Text, SourcedFromUI}};
 
@@ -289,7 +289,7 @@ impl UI {
     }
 
     /// Sets the UI resolution.
-    pub fn set_resolution(res: (u32, u32)) {
+    pub fn set_resolution(res: uvec2) {
         assert_ui_enabled!();
         
         let half_size = vec2(res.0 as f32, res.1 as f32) * 0.5;
@@ -297,11 +297,11 @@ impl UI {
     }
 
     /// Returns the UI resolution.
-    pub fn get_resolution() -> (u32, u32) {
+    pub fn get_resolution() -> uvec2 {
         assert_ui_enabled!();
 
         let size = UI_SINGLETON.read().unwrap().scope.cam_data.half_size * 2.0;
-        return (size.0 as u32, size.1 as u32);
+        return uvec2(size.0 as u32, size.1 as u32);
     }
 
     /// Sets snapping.

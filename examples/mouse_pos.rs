@@ -1,11 +1,11 @@
-use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, texture::TextureFiltering, gfx::{integer_scaling, self}}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res, input::{Input, MouseInput}, log_info};
+use nogine::{color::{Color, Color4}, graphics::{gfx::{self, integer_scaling}, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, texture::TextureFiltering, Graphics, RenderStats}, input::{Input, MouseInput}, log_info, math::{uvec2, vec2}, unwrap_res, window::{WindowCfg, WindowMode}};
 
 struct CustomPipeline;
 
 impl RenderPipeline for CustomPipeline {
     fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, _ui_data: Option<&SceneRenderData>, stats: &mut RenderStats) {
         // Render scene to texture
-        let mut src_rt = RenderTexture::new((240, 160), TextureFiltering::Closest);
+        let mut src_rt = RenderTexture::new(uvec2(240, 160), TextureFiltering::Closest);
         src_rt.clear(scene_data.clear_col());
         src_rt.render_scene(scene_data, DEFAULT_RENDER_TARGET, stats);
         
@@ -34,9 +34,9 @@ fn main() {
         if Input::mouse_pressed(MouseInput::Left) {
             let src_pos = Input::mouse_pos();
             log_info!("Src: {src_pos}");
-            if let Ok(x) = gfx::integer_scaling_mouse_pos(src_pos, (240, 160), window.get_size()) {
+            if let Ok(x) = gfx::integer_scaling_mouse_pos(src_pos, uvec2(240, 160), window.get_size()) {
                 log_info!("Processed: {x}");
-                click_pos = gfx::screen_to_world_pos(x, (240, 160));
+                click_pos = gfx::screen_to_world_pos(x, uvec2(240, 160));
             }
         }
 

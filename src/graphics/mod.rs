@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use crate::{math::{vec2, mat3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
+use crate::{assert_expr, color::{Color, Color4}, graphics::defaults::{DefaultMaterials, DefaultShaders}, log_info, math::{mat3, quad::Quad, uvec2, vec2, Rect}, window::Window};
 
 use self::{material::Material, pipeline::{RenderPipeline, RenderTexture}, render_scope::{RenderScope, Snapping}, texture::{Sprite, Texture}, ui::{text::{SourcedFromGraphics, Text}, UI}};
 
@@ -320,7 +320,7 @@ impl Graphics {
         return GRAPHICS.read().unwrap().active_scope.get_material(mode);
     }
 
-    pub(crate) fn render(pipeline: &dyn RenderPipeline, screen_res: (u32, u32), window: *mut Window) -> RenderStats {
+    pub(crate) fn render(pipeline: &dyn RenderPipeline, screen_res: uvec2, window: *mut Window) -> RenderStats {
         let reader = GRAPHICS.read().unwrap();
         assert_expr!(reader.active_scope.is_global, "The global render scope must be active at the end of the frame!");
         

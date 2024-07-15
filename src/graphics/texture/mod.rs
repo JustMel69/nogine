@@ -3,7 +3,7 @@ use std::{io::{Read, Seek, BufReader}, sync::Arc};
 use image::{EncodableLayout, GenericImageView, ImageError};
 use thiserror::Error;
 
-use crate::{assert_expr, color::BColor4, math::{Rect, vec2}, Res};
+use crate::{assert_expr, color::BColor4, math::{uvec2, vec2, Rect}, Res};
 
 use super::super::gl_call;
 
@@ -80,7 +80,7 @@ impl TextureCore {
 pub struct Texture {
     id: Arc<TextureCore>,
     data: Option<Box<[u8]>>,
-    dims: (u32, u32)
+    dims: uvec2
 }
 
 impl Texture {
@@ -91,7 +91,7 @@ impl Texture {
     }
 
     /// Creates a texture from a set of data.
-    pub fn new(rgba_colors: Box<[u8]>, fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
+    pub fn new(rgba_colors: Box<[u8]>, fmt: TextureFormat, dims: uvec2, cfg: TextureCfg) -> Self {
         assert_expr!(dims.0 != 0 && dims.1 != 0, "None of the axis of the resolution can have 0 as a value.");
         
         let mut id = 0;
@@ -110,7 +110,7 @@ impl Texture {
         return Texture { id: Arc::new(TextureCore(id)), data: Some(rgba_colors), dims };
     }
 
-    pub fn empty(fmt: TextureFormat, dims: (u32, u32), cfg: TextureCfg) -> Self {
+    pub fn empty(fmt: TextureFormat, dims: uvec2, cfg: TextureCfg) -> Self {
         assert_expr!(dims.0 != 0 && dims.1 != 0, "None of the axis of the resolution can have 0 as a value.");
         
         let mut id = 0;
@@ -129,12 +129,12 @@ impl Texture {
         return Texture { id: Arc::new(TextureCore(id)), data: None, dims };
     }
 
-    pub(crate) unsafe fn from_raw_parts(core: u32, dims: (u32, u32)) -> Self {
+    pub(crate) unsafe fn from_raw_parts(core: u32, dims: uvec2) -> Self {
         return Self { id: Arc::new(TextureCore(core)), data: None, dims };
     }
 
 
-    pub fn dims(&self) -> (u32, u32) {
+    pub fn dims(&self) -> uvec2 {
         self.dims
     }
 
@@ -186,23 +186,23 @@ pub struct SprRect(pub u32, pub u32, pub u32, pub u32);
 /// A grid aligned texture. Allows to pull sprites.
 pub struct SpriteAtlas {
     internal: Texture,
-    sprite_dims: (u32, u32),
+    sprite_dims: uvec2,
 }
 
 impl SpriteAtlas {
-    pub fn new(tex: Texture, cell_dims: (u32, u32))  -> Self{
+    pub fn new(tex: Texture, cell_dims: uvec2)  -> Self{
         return Self { internal: tex, sprite_dims: cell_dims };
     }
 
     pub fn get(&self, rect: SprRect) -> Sprite<'_> {
         let tex_dims = self.internal.dims;
         
-        let p_pos = (rect.0 * self.sprite_dims.0, rect.1 * self.sprite_dims.1);
-        let p_size = (rect.2 * self.sprite_dims.0, rect.3 * self.sprite_dims.1);
+        let p_pos = uvec2(rect.0 * self.sprite_dims.0, rect.1 * self.sprite_dims.1);
+        let p_size = uvec2(rect.2 * self.sprite_dims.0, rect.3 * self.sprite_dims.1);
 
         let uv_rect = Rect {
             start: (vec2::from(p_pos) + vec2::one(0.1)).inv_scale(vec2::from(tex_dims)),
-            end: (vec2::from((p_pos.0 + p_size.0, p_pos.1 + p_size.1)) + vec2::one(0.1)).inv_scale(vec2::from(tex_dims)),
+            end: (vec2::from(p_pos + p_size) + vec2::one(0.1)).inv_scale(vec2::from(tex_dims)),
         };
 
         return Sprite(&self.internal, uv_rect);
@@ -212,13 +212,13 @@ impl SpriteAtlas {
         return &self.internal;
     }
 
-    pub fn sprite_dims(&self) -> (u32, u32) {
+    pub fn sprite_dims(&self) -> uvec2 {
         self.sprite_dims
     }
 
     /// Creates a new sprite atlas with 1x1 cells.
     pub fn to_freesample(mut self) -> Self {
-        self.sprite_dims = (1, 1);
+        self.sprite_dims = uvec2(1, 1);
         return self;
     }
 }
@@ -226,13 +226,13 @@ impl SpriteAtlas {
 pub(crate) struct RawTexData {
     pub data: Box<[u8]>,
     pub fmt: TextureFormat,
-    pub dims: (u32, u32),
+    pub dims: uvec2,
     pub cfg: TextureCfg,
 }
 pub(crate) fn load_texture_data(src: impl Read + Seek, cfg: TextureCfg) -> Res<RawTexData, TextureError> {
     let decoder = image::io::Reader::new(BufReader::new(src)).with_guessed_format().map_err(|e| TextureError::from(e))?;
         let img = decoder.decode().map_err(|e| TextureError::from(e))?;
-        let dims = img.dimensions();
+        let dims = uvec2::from(img.dimensions());
         
         let (data, fmt) = match img {
             image::DynamicImage::ImageLuma8(img) => {
@@ -291,18 +291,18 @@ pub(crate) fn load_texture_data(src: impl Read + Seek, cfg: TextureCfg) -> Res<R
 
 pub struct Pixels<'a> {
     inner: &'a [u8],
-    res: (u32, u32),
+    res: uvec2,
 }
 
 impl<'a> Pixels<'a> {
-    pub fn get(&self, pos: (u32, u32)) -> BColor4 {
+    pub fn get(&self, pos: uvec2) -> BColor4 {
         assert_expr!(pos.0 < self.res.0 && pos.1 < self.res.1, "Pixel out of bounds! (Pos was ({}, {}), Res was ({}, {}))", pos.0, pos.1, self.res.0, self.res.1);
         
         let index = (pos.0 + pos.1 * self.res.0) as usize * 4;
         return BColor4(self.inner[index], self.inner[index + 1], self.inner[index + 2], self.inner[index + 3])
     }
 
-    pub fn res(&self) -> (u32, u32) {
+    pub fn res(&self) -> uvec2 {
         self.res
     }
 }

@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{mat3, vec2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
+use crate::{assert_expr, color::{Color, Color4}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{mat3, quad::Quad, uvec2, vec2, Rect}, utils::ptr_slice::PtrSlice};
 
 use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::Text}};
 
@@ -55,7 +55,7 @@ impl RenderScope {
     }
 
     /// Renders the render scope to a texture
-    pub fn render_to_texture(&mut self, res: (u32, u32), filtering: TextureFiltering, pipeline: Option<&dyn RenderPipeline>) -> (Texture, RenderStats) {
+    pub fn render_to_texture(&mut self, res: uvec2, filtering: TextureFiltering, pipeline: Option<&dyn RenderPipeline>) -> (Texture, RenderStats) {
         self.finalize_batch();
 
         let pipeline = pipeline.unwrap_or(&DefaultRenderPipeline);

@@ -1,10 +1,10 @@
-use nogine::{graphics::{Graphics, render_scope::RenderScope, texture::{TextureFiltering, Texture, TextureFormat, TextureCfg}}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res};
+use nogine::{color::{Color, Color4}, graphics::{render_scope::RenderScope, texture::{Texture, TextureCfg, TextureFiltering, TextureFormat}, Graphics}, math::{uvec2, vec2}, unwrap_res, window::{WindowCfg, WindowMode}};
 
 fn main() {
     // Create Window
     let mut window = unwrap_res!(WindowCfg::default().res((1280, 720)).title("Figures Example").mode(WindowMode::Windowed).init());
 
-    let mut scope_tex = Texture::empty(TextureFormat::RGBA, (256, 256), TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() });
+    let mut scope_tex = Texture::empty(TextureFormat::RGBA, uvec2(256, 256), TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() });
     let mut scope = RenderScope::new();
     Graphics::with_scope(&mut scope, || {
         Graphics::set_clear_col(Color4(0.5, 0.0, 0.0, 1.0));

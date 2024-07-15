@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{rect::URect, mat3, vec2}, unwrap_res};
+use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{ivec2, mat3, rect::URect, uvec2, vec2}, unwrap_res};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -62,7 +62,7 @@ impl BitmapFont {
             let mut start = px0;
             'outer: for x in px0..=px1 {
                 for y in py0..=py1 {
-                    if p.get((x, y)).3 != 0 {
+                    if p.get(uvec2(x, y)).3 != 0 {
                         start = x;
                         break 'outer;
                     }
@@ -73,7 +73,7 @@ impl BitmapFont {
             let mut end = px1;
             'outer: for x in (start..=px1).rev() {
                 for y in py0..=py1 {
-                    if p.get((x, y)).3 != 0 {
+                    if p.get(uvec2(x, y)).3 != 0 {
                         end = x;
                         break 'outer;
                     }
@@ -164,7 +164,7 @@ pub struct MonospaceData {
 pub struct RasterFont {
     tex: Texture,
     charset: HashMap<char, URect>,
-    origins: HashMap<char, (i32, i32)>,
+    origins: HashMap<char, ivec2>,
     cfg: FontCfg,
 }
 
@@ -179,8 +179,8 @@ impl RasterFont {
         for &c in characters {
             let (metrics, data) = font.rasterize(c, quality);
 
-            builder.push((metrics.height as u32, metrics.width as u32), &data, c);
-            origins.insert(c, (metrics.xmin, metrics.ymin));
+            builder.push(uvec2(metrics.height as u32, metrics.width as u32), &data, c);
+            origins.insert(c, ivec2(metrics.xmin, metrics.ymin));
         }
 
         let (tex, charset) = builder.bake(TextureCfg { filtering, wrapping: TextureWrapping::Clamp });

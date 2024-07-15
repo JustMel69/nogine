@@ -1,4 +1,4 @@
-use nogine::{graphics::{ui::{UI, Origin, Interaction}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, SprRect, Sprite}, Graphics}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res, utils::rng::RNG, input::MouseInput};
+use nogine::{color::{Color, Color4}, graphics::{texture::{SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering}, ui::{Interaction, Origin, UI}, Graphics}, input::MouseInput, math::{uvec2, vec2}, unwrap_res, utils::rng::RNG, window::{WindowCfg, WindowMode}};
 
 const HEARTS_DATA: &[u8] = include_bytes!("res/hearts.png");
 const PANEL_DATA: &[u8] = include_bytes!("res/panel.png");
@@ -15,7 +15,7 @@ impl Assets {
                 std::io::Cursor::new(HEARTS_DATA),
                 TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() }
             )),            
-            (12, 12)
+            uvec2(12, 12)
         );
     
         let panel = SpriteAtlas::new(
@@ -23,7 +23,7 @@ impl Assets {
                 std::io::Cursor::new(PANEL_DATA),
                 TextureCfg { filtering: TextureFiltering::Linear, ..Default::default() }
             )),            
-            (32, 32)
+            uvec2(32, 32)
         );
 
         return Self { hearts, panel };
@@ -59,7 +59,7 @@ fn main() {
     }
 }
 
-fn draw_ui(res: (u32, u32), resources: &mut Resources, assets: &Assets) {
+fn draw_ui(res: uvec2, resources: &mut Resources, assets: &Assets) {
     UI::set_resolution(res);
 
     draw_health_bar(resources.health, &assets.hearts);

@@ -1,4 +1,4 @@
-use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::{mat3, Rect}};
+use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::{ivec2, mat3, uvec2, Rect}};
 
 use super::{gl_call, batch::TargetBatchData, RenderStats, texture::{TextureFiltering, Texture}, BlendingMode, material::Material};
 
@@ -10,7 +10,7 @@ pub struct ScreenRect {
 }
 
 impl ScreenRect {
-    pub fn new(pos: (i32, i32), size: (i32, i32)) -> Self {
+    pub fn new(pos: ivec2, size: ivec2) -> Self {
         return Self { l: pos.0, r: pos.0 + size.0, d: pos.1, u: pos.1 + size.1 };
     }
 
@@ -51,16 +51,16 @@ pub trait RenderPipeline {
 pub struct RenderTexture {
     fbo: gl::types::GLuint,
     col_tex: gl::types::GLuint,
-    res: (u32, u32),
+    res: uvec2,
     alpha: f32,
 }
 
 impl RenderTexture {
-    pub(super) fn to_screen(res: (u32, u32)) -> Self {
+    pub(super) fn to_screen(res: uvec2) -> Self {
         return Self { fbo: 0, col_tex: 0, res, alpha: 1.0 };
     }
 
-    pub fn new(res: (u32, u32), filtering: TextureFiltering) -> Self {
+    pub fn new(res: uvec2, filtering: TextureFiltering) -> Self {
         assert_expr!(res.0 != 0 && res.1 != 0, "None of the resolution axis can be 0");
         
         let mut fbo = 0;
@@ -127,7 +127,7 @@ impl RenderTexture {
     pub fn downscaled(&self, factor: u32, target_filtering: TextureFiltering, stats: &mut RenderStats) -> Self {
         assert_expr!(factor != 0, "Scaling factor cannot be 0");
         
-        let mut target_rt = RenderTexture::new(((self.res.0 / factor).max(1), (self.res.1 / factor).max(1)), target_filtering);
+        let mut target_rt = RenderTexture::new(uvec2((self.res.0 / factor).max(1), (self.res.1 / factor).max(1)), target_filtering);
         target_rt.clear(Color4::CLEAR);
         target_rt.render_with_shader(&self, &DefaultMaterials::def_blit_material(), BlendingMode::AlphaMix, stats);
 
@@ -144,7 +144,7 @@ impl RenderTexture {
 
     /// Soure cannot be the Screen Render Texture.
     pub fn render_with_shader(&mut self, source: &Self, material: &Material, blending: BlendingMode, stats: &mut RenderStats) {
-        self.render_with_shader_ext(source, material, blending, ScreenRect::new((0, 0), (self.res.0 as i32, self.res.1 as i32)), Rect::IDENT, stats);
+        self.render_with_shader_ext(source, material, blending, ScreenRect::new(ivec2::ZERO, ivec2(self.res.0 as i32, self.res.1 as i32)), Rect::IDENT, stats);
     }
 
     pub fn render_with_shader_ext(&mut self, source: &Self, material: &Material, blending: BlendingMode, rect: ScreenRect, source_uvs: Rect, stats: &mut RenderStats) {
@@ -197,7 +197,7 @@ impl RenderTexture {
         self.alpha = alpha;
     }
 
-    pub fn res(&self) -> (u32, u32) {
+    pub fn res(&self) -> uvec2 {
         self.res
     }
 

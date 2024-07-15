@@ -1,4 +1,4 @@
-use nogine::{color::{Color, Color4}, graphics::{Graphics, ui::text::{font::{BitmapFont, FontCfg}, HorTextAlignment, VerTextAlignment}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}}, math::vec2, unwrap_res, window::{WindowCfg, WindowMode}};
+use nogine::{color::{Color, Color4}, graphics::{texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}, ui::text::{font::{BitmapFont, FontCfg}, HorTextAlignment, VerTextAlignment}, Graphics}, math::{uvec2, vec2}, unwrap_res, window::{WindowCfg, WindowMode}};
 
 const FONT_DATA: &[u8] = include_bytes!("res/text.png");
 const NICE_FONT_DATA: &[u8] = include_bytes!("res/nice_text.png");
@@ -13,7 +13,7 @@ fn main() {
                 std::io::Cursor::new(FONT_DATA),
                 TextureCfg { filtering: TextureFiltering::Closest, wrapping: TextureWrapping::Clamp }
             )),
-            (6, 8)
+            uvec2(6, 8)
         ),
         "abcdefghijklmnopqrstuvwxyz",
         FontCfg{ monospace: true, char_spacing: 2.0 / 6.0, line_spacing: 4.0 / 8.0, ..Default::default()}
@@ -25,7 +25,7 @@ fn main() {
                 std::io::Cursor::new(NICE_FONT_DATA),
                 TextureCfg { filtering: TextureFiltering::Closest, wrapping: TextureWrapping::Clamp }
             )), 
-            (10, 9)
+            uvec2(10, 9)
         ),
         "0123456789.,:;'()[]{}<>?!¿¡_*+-=/#%@~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÁÉÍÓÚÜáéíóúüÑñ",
         FontCfg { monospace: false, char_spacing: 1.0 / 9.0, line_spacing: 1.0 / 9.0, word_spacing: 5.0 / 9.0, ..Default::default() }

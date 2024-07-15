@@ -1,11 +1,11 @@
-use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, texture::TextureFiltering, gfx::integer_scaling}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res};
+use nogine::{color::{Color, Color4}, graphics::{gfx::integer_scaling, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, texture::TextureFiltering, Graphics, RenderStats}, math::{uvec2, vec2}, unwrap_res, window::{WindowCfg, WindowMode}};
 
 struct CustomPipeline;
 
 impl RenderPipeline for CustomPipeline {
     fn render(&self, screen_rt: &mut RenderTexture, scene_data: &SceneRenderData, _ui_data: Option<&SceneRenderData>, stats: &mut RenderStats) {
         // Render scene to texture
-        let mut src_rt = RenderTexture::new((240, 160), TextureFiltering::Closest);
+        let mut src_rt = RenderTexture::new(uvec2(240, 160), TextureFiltering::Closest);
         src_rt.clear(scene_data.clear_col());
         src_rt.render_scene(scene_data, DEFAULT_RENDER_TARGET, stats);
         

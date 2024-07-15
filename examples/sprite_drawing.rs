@@ -1,4 +1,4 @@
-use nogine::{window::WindowCfg, math::vec2, graphics::{Graphics, texture::{Texture, TextureCfg, TextureFiltering, SpriteAtlas, SprRect}}, unwrap_res};
+use nogine::{graphics::{texture::{SprRect, SpriteAtlas, Texture, TextureCfg, TextureFiltering}, Graphics}, math::{uvec2, vec2}, unwrap_res, window::WindowCfg};
 
 const ATLAS_TEX: &[u8] = include_bytes!("res/atlas.png");
 
@@ -10,7 +10,7 @@ fn main() {
     Graphics::set_pixels_per_unit(16.0);
 
     let tex = unwrap_res!(Texture::load(std::io::Cursor::new(ATLAS_TEX), TextureCfg { filtering: TextureFiltering::Closest, ..Default::default() }));
-    let atlas = SpriteAtlas::new(tex, (16, 16));
+    let atlas = SpriteAtlas::new(tex, uvec2(16, 16));
 
     while window.is_running() {
         window.pre_tick(None);
