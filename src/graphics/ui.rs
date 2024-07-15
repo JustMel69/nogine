@@ -341,7 +341,11 @@ impl UI {
     }
 
     pub(crate) fn quad_to_rect(&self, quad: Quad) -> Rect {
-        return Rect { start: quad.ld, end: quad.ru };
+        let mut pos = quad.ld;
+        let size = quad.ru - quad.ld;
+        pos.1 = -size.1 - pos.1;
+
+        return Rect { start: pos, end: pos + size };
     }
 }
 
