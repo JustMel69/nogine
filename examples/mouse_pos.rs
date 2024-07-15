@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, texture::TextureFiltering, gfx::{integer_scaling, self}}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res, input::{Input, MouseInput}, log_info};
+use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, texture::TextureFiltering, gfx::{integer_scaling, self}}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res, input::{Input, MouseInput}, log_info};
 
 struct CustomPipeline;
 
@@ -24,9 +24,9 @@ fn main() {
 
     let pipeline = CustomPipeline;
     
-    Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * 5.0, 5.0));
+    Graphics::set_cam(vec2::ZERO, vec2(1.5 * 5.0, 5.0));
 
-    let mut click_pos = Vector2::ZERO;
+    let mut click_pos = vec2::ZERO;
     while window.is_running() {
         //window.set_aspect_ratio(3, 2);
         window.pre_tick(Some(&pipeline));

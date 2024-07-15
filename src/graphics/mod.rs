@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use crate::{math::{Vector2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
+use crate::{math::{vec2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
 use self::{material::Material, pipeline::{RenderPipeline, RenderTexture}, render_scope::{RenderScope, Snapping}, texture::{Sprite, Texture}, ui::{text::{SourcedFromGraphics, Text}, UI}};
 
@@ -49,20 +49,20 @@ impl Mode {
 }
 
 
-const DEFAULT_CAM_DATA: CamData = CamData { pos: Vector2::ZERO, half_size: Vector2::ONE };
+const DEFAULT_CAM_DATA: CamData = CamData { pos: vec2::ZERO, half_size: vec2::ONE };
 
 #[derive(Clone, Copy)]
 pub struct CamData {
-    pos: Vector2,
-    half_size: Vector2,
+    pos: vec2,
+    half_size: vec2,
 }
 
 impl CamData {
-    pub fn pos(&self) -> Vector2 {
+    pub fn pos(&self) -> vec2 {
         self.pos
     }
 
-    pub fn half_size(&self) -> Vector2 {
+    pub fn half_size(&self) -> vec2 {
         self.half_size
     }
 }
@@ -116,7 +116,7 @@ impl Graphics {
     // |>-<   Rect Drawing   >-<| //
     
     /// Draws a non rotated rect.
-    pub fn draw_rect(pos: Vector2, extents: Vector2, color: Color4) -> Quad {
+    pub fn draw_rect(pos: vec2, extents: vec2, color: Color4) -> Quad {
         Self::draw_rect_full(pos, extents, 0.0, [color; 4])
     }
     
@@ -124,7 +124,7 @@ impl Graphics {
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_rect_full(pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> Quad {
+    pub fn draw_rect_full(pos: vec2, extents: vec2, rot: f32, colors: [Color4; 4]) -> Quad {
         GRAPHICS.write().unwrap().active_scope.draw_rect(pos, extents, rot, colors)
     }
 
@@ -134,13 +134,13 @@ impl Graphics {
 
     /// Draws a rotated texture.<br>
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_texture(pos: Vector2, scale: Vector2, rot: f32, tex: &Texture) -> Quad {
+    pub fn draw_texture(pos: vec2, scale: vec2, rot: f32, tex: &Texture) -> Quad {
         Self::draw_texture_full(pos, scale, rot, Rect::IDENT, [Color4::WHITE; 4], tex)
     }
 
     /// Draws a rotated sprite.<br>
     /// - The size of the rect depends on the stablished pixels-per-unit and the scale.
-    pub fn draw_sprite(pos: Vector2, scale: Vector2, rot: f32, sprite: Sprite) -> Quad {
+    pub fn draw_sprite(pos: vec2, scale: vec2, rot: f32, sprite: Sprite) -> Quad {
         Self::draw_texture_full(pos, scale, rot, sprite.rect(), [Color4::WHITE; 4], sprite.tex())
     }
 
@@ -149,7 +149,7 @@ impl Graphics {
     /// - The order of the colors for the colors array is<br>
     /// 1 2<br>
     /// 0 3
-    pub fn draw_texture_full(pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> Quad {
+    pub fn draw_texture_full(pos: vec2, scale: vec2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> Quad {
         GRAPHICS.write().unwrap().active_scope.draw_texture(pos, scale, rot, uvs, colors, tex)
     }
 
@@ -157,13 +157,13 @@ impl Graphics {
     // |>-<   Ellipse Drawing   >-<| //
 
     /// Draws a circle.
-    pub fn draw_circle(center: Vector2, radius: f32, color: Color4) -> Quad {
-        Self::draw_ellipse(center, Vector2(radius, radius), 0.0, color)
+    pub fn draw_circle(center: vec2, radius: f32, color: Color4) -> Quad {
+        Self::draw_ellipse(center, vec2(radius, radius), 0.0, color)
     }
 
     /// Draws a rotated ellipse.
     /// - The ellipse is rotated around the center.
-    pub fn draw_ellipse(center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> Quad {
+    pub fn draw_ellipse(center: vec2, half_extents: vec2, rot: f32, color: Color4) -> Quad {
         GRAPHICS.write().unwrap().active_scope.draw_ellipse(center, half_extents, rot, color)
     }
 
@@ -173,13 +173,13 @@ impl Graphics {
 
     /// Draws a rotated polygon.
     /// - The polygon is rotated around the center.
-    pub fn draw_polygon(center: Vector2, radius: f32, rot: f32, sides: u32, color: Color4) {
-        Self::draw_polygon_ext(center, Vector2(radius, radius), rot, sides, color);
+    pub fn draw_polygon(center: vec2, radius: f32, rot: f32, sides: u32, color: Color4) {
+        Self::draw_polygon_ext(center, vec2(radius, radius), rot, sides, color);
     }
 
     /// Draws an scaled and rotated polygon.
     /// - The polygon is rotated around the center.
-    pub fn draw_polygon_ext(center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {
+    pub fn draw_polygon_ext(center: vec2, half_extents: vec2, rot: f32, sides: u32, color: Color4) {
         GRAPHICS.write().unwrap().active_scope.draw_polygon(center, half_extents, rot, sides, color);
     }
     
@@ -188,24 +188,24 @@ impl Graphics {
     // |>-<   Line Drawing   >-<| //
 
     /// Draws a line with the desired color.
-    pub fn draw_line(from: Vector2, to: Vector2, color: Color4) {
+    pub fn draw_line(from: vec2, to: vec2, color: Color4) {
         Self::draw_line_ext(from, to, [color; 2])
     }
 
     /// Draws a line with the desired colors. The first color is the start color, and the last is the end color.
-    pub fn draw_line_ext(from: Vector2, to: Vector2, colors: [Color4; 2]) {
+    pub fn draw_line_ext(from: vec2, to: vec2, colors: [Color4; 2]) {
         GRAPHICS.write().unwrap().active_scope.draw_line(from, to, colors);
     }
 
 
     /// Draw a custom mesh. Prone to not behaving. Not affected by pivot.
-    pub unsafe fn draw_custom_mesh(pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
+    pub unsafe fn draw_custom_mesh(pos: vec2, rot: f32, scale: vec2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         GRAPHICS.write().unwrap().active_scope.draw_custom_mesh(pos, rot, scale, vert_data, tri_data, vert_attribs, textures);
     }
 
     /// Creates a new text.
     #[must_use]
-    pub fn text(pos: Vector2, bounds_size: Vector2, rot: f32, text: &str) -> Text<'_, SourcedFromGraphics> {
+    pub fn text(pos: vec2, bounds_size: vec2, rot: f32, text: &str) -> Text<'_, SourcedFromGraphics> {
         return Text::<'_, SourcedFromGraphics>::new(pos, bounds_size, rot, text);
     }
 
@@ -276,12 +276,12 @@ impl Graphics {
     }
 
     /// Sets the pivot.
-    pub fn set_pivot(pivot: Vector2) {
+    pub fn set_pivot(pivot: vec2) {
         GRAPHICS.write().unwrap().active_scope.pivot = pivot;
     }
 
     /// Returns the pivot.
-    pub fn get_pivot() -> Vector2 {
+    pub fn get_pivot() -> vec2 {
         return GRAPHICS.read().unwrap().active_scope.pivot;
     }
 
@@ -304,7 +304,7 @@ impl Graphics {
     /// - 'half_size' must not have any axis be zero.
     /// - For the global render scope, changes will be applied the next frame.
     /// - For non global render scopes, changes will be applied on the next tick.
-    pub fn set_cam(pos: Vector2, half_size: Vector2) {
+    pub fn set_cam(pos: vec2, half_size: vec2) {
         GRAPHICS.write().unwrap().active_scope.set_camera(CamData { pos, half_size });
     }
 

@@ -1,6 +1,6 @@
 use std::{sync::RwLock, collections::HashMap};
 
-use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{lerp, quad::Quad, Rect, Vector2}};
+use crate::{assert_expr, color::{Color, Color4}, graphics::{render_scope::Snapping, CamData, Mode}, input::{Input, MouseInput}, log_info, math::{lerp, quad::Quad, Rect, vec2}};
 
 use self::{internal::ActiveData, text::{Text, SourcedFromUI}};
 
@@ -27,7 +27,7 @@ pub struct UI {
     inputs: Option<HashMap<String, Interaction>>,
     active_data: Option<internal::ActiveData>,
 
-    prev_mouse: Vector2,
+    prev_mouse: vec2,
 }
 
 impl UI {
@@ -41,7 +41,7 @@ impl UI {
             inputs: None,
             active_data: None,
 
-            prev_mouse: Vector2::ZERO,
+            prev_mouse: vec2::ZERO,
         }
     }
 
@@ -62,7 +62,7 @@ impl UI {
 
     /// Handles UI input.<br>
     /// This function should be called shortly before `post_tick` and after all `interactable`s have been created.
-    pub fn handle_input(mouse_transform: impl Fn(Vector2) -> Option<Vector2>) {
+    pub fn handle_input(mouse_transform: impl Fn(vec2) -> Option<vec2>) {
         assert_ui_enabled!();
         let mut writer = UI_SINGLETON.write().unwrap();
         
@@ -104,7 +104,7 @@ impl UI {
                     continue;
                 }
             
-                if mouse_scroll != Vector2::ZERO {
+                if mouse_scroll != vec2::ZERO {
                     internal::push_interaction(&mut map, &inter.0, Interaction::Scroll(mouse_scroll));
                     break;
                 }
@@ -128,7 +128,7 @@ impl UI {
 
 
     /// Draws a rectangle.
-    pub fn draw_rect(origin: Origin, pos: Vector2, size: Vector2, color: Color4) -> Rect {
+    pub fn draw_rect(origin: Origin, pos: vec2, size: vec2, color: Color4) -> Rect {
         assert_ui_enabled!();
         
         let mut writer = UI_SINGLETON.write().unwrap();
@@ -142,12 +142,12 @@ impl UI {
     }
 
     /// Draws a texture.
-    pub fn draw_texture(origin: Origin, pos: Vector2, scale: Vector2, texture: &Texture) -> Rect {
+    pub fn draw_texture(origin: Origin, pos: vec2, scale: vec2, texture: &Texture) -> Rect {
         Self::draw_texture_ext(origin, pos, scale, Rect::IDENT, texture)
     }
 
     /// Draw a sprite.
-    pub fn draw_sprite(origin: Origin, pos: Vector2, scale: Vector2, sprite: Sprite<'_>) -> Rect {
+    pub fn draw_sprite(origin: Origin, pos: vec2, scale: vec2, sprite: Sprite<'_>) -> Rect {
         let rect = sprite.rect();
         let tex = sprite.tex();
 
@@ -155,7 +155,7 @@ impl UI {
     }
 
     /// Draws a texture with extended control.
-    pub fn draw_texture_ext(origin: Origin, pos: Vector2, scale: Vector2, uv_rect: Rect, texture: &Texture) -> Rect {
+    pub fn draw_texture_ext(origin: Origin, pos: vec2, scale: vec2, uv_rect: Rect, texture: &Texture) -> Rect {
         assert_ui_enabled!();
 
         let mut writer = UI_SINGLETON.write().unwrap();
@@ -169,10 +169,10 @@ impl UI {
     }
 
     /// Draws a panel.
-    pub fn draw_panel(origin: Origin, pos: Vector2, size: Vector2, sprite: Sprite<'_>, scaling: f32) -> Rect {
+    pub fn draw_panel(origin: Origin, pos: vec2, size: vec2, sprite: Sprite<'_>, scaling: f32) -> Rect {
         assert_ui_enabled!();
-        let corner_dims = Vector2::from(sprite.tex().dims()).scale(sprite.rect().size()) / 3.0 * scaling;
-        let size = Vector2(size.0.max(corner_dims.0 * 2.0), size.1.max(corner_dims.1 * 2.0));
+        let corner_dims = vec2::from(sprite.tex().dims()).scale(sprite.rect().size()) / 3.0 * scaling;
+        let size = vec2(size.0.max(corner_dims.0 * 2.0), size.1.max(corner_dims.1 * 2.0));
         
         let mut writer = UI_SINGLETON.write().unwrap();
 
@@ -183,7 +183,7 @@ impl UI {
         
         #[repr(C)]
         #[derive(Debug)]
-        struct Vert(Vector2, Color4, Vector2);
+        struct Vert(vec2, Color4, vec2);
 
         let tint = writer.tint;
         let rect = sprite.rect();
@@ -194,25 +194,25 @@ impl UI {
         let yuvs = [ rect.down(), lerp(rect.down(), rect.up(), 1.0 / 3.0), lerp(rect.down(), rect.up(), 2.0 / 3.0), rect.up() ];
 
         let verts = [
-            Vert(Vector2(xpos[0], ypos[3]), tint, Vector2(xuvs[0], yuvs[0])),
-            Vert(Vector2(xpos[1], ypos[3]), tint, Vector2(xuvs[1], yuvs[0])),
-            Vert(Vector2(xpos[2], ypos[3]), tint, Vector2(xuvs[2], yuvs[0])),
-            Vert(Vector2(xpos[3], ypos[3]), tint, Vector2(xuvs[3], yuvs[0])),
+            Vert(vec2(xpos[0], ypos[3]), tint, vec2(xuvs[0], yuvs[0])),
+            Vert(vec2(xpos[1], ypos[3]), tint, vec2(xuvs[1], yuvs[0])),
+            Vert(vec2(xpos[2], ypos[3]), tint, vec2(xuvs[2], yuvs[0])),
+            Vert(vec2(xpos[3], ypos[3]), tint, vec2(xuvs[3], yuvs[0])),
 
-            Vert(Vector2(xpos[0], ypos[2]), tint, Vector2(xuvs[0], yuvs[1])),
-            Vert(Vector2(xpos[1], ypos[2]), tint, Vector2(xuvs[1], yuvs[1])),
-            Vert(Vector2(xpos[2], ypos[2]), tint, Vector2(xuvs[2], yuvs[1])),
-            Vert(Vector2(xpos[3], ypos[2]), tint, Vector2(xuvs[3], yuvs[1])),
+            Vert(vec2(xpos[0], ypos[2]), tint, vec2(xuvs[0], yuvs[1])),
+            Vert(vec2(xpos[1], ypos[2]), tint, vec2(xuvs[1], yuvs[1])),
+            Vert(vec2(xpos[2], ypos[2]), tint, vec2(xuvs[2], yuvs[1])),
+            Vert(vec2(xpos[3], ypos[2]), tint, vec2(xuvs[3], yuvs[1])),
 
-            Vert(Vector2(xpos[0], ypos[1]), tint, Vector2(xuvs[0], yuvs[2])),
-            Vert(Vector2(xpos[1], ypos[1]), tint, Vector2(xuvs[1], yuvs[2])),
-            Vert(Vector2(xpos[2], ypos[1]), tint, Vector2(xuvs[2], yuvs[2])),
-            Vert(Vector2(xpos[3], ypos[1]), tint, Vector2(xuvs[3], yuvs[2])),
+            Vert(vec2(xpos[0], ypos[1]), tint, vec2(xuvs[0], yuvs[2])),
+            Vert(vec2(xpos[1], ypos[1]), tint, vec2(xuvs[1], yuvs[2])),
+            Vert(vec2(xpos[2], ypos[1]), tint, vec2(xuvs[2], yuvs[2])),
+            Vert(vec2(xpos[3], ypos[1]), tint, vec2(xuvs[3], yuvs[2])),
 
-            Vert(Vector2(xpos[0], ypos[0]), tint, Vector2(xuvs[0], yuvs[3])),
-            Vert(Vector2(xpos[1], ypos[0]), tint, Vector2(xuvs[1], yuvs[3])),
-            Vert(Vector2(xpos[2], ypos[0]), tint, Vector2(xuvs[2], yuvs[3])),
-            Vert(Vector2(xpos[3], ypos[0]), tint, Vector2(xuvs[3], yuvs[3])),
+            Vert(vec2(xpos[0], ypos[0]), tint, vec2(xuvs[0], yuvs[3])),
+            Vert(vec2(xpos[1], ypos[0]), tint, vec2(xuvs[1], yuvs[3])),
+            Vert(vec2(xpos[2], ypos[0]), tint, vec2(xuvs[2], yuvs[3])),
+            Vert(vec2(xpos[3], ypos[0]), tint, vec2(xuvs[3], yuvs[3])),
         ];
         let verts = internal::convert_vert_data(&verts);
 
@@ -235,7 +235,7 @@ impl UI {
     }
 
     /// Creates a new text.
-    pub fn text(origin: Origin, pos: Vector2, bounds_size: Vector2, text: &str) -> Text<'_, SourcedFromUI> {
+    pub fn text(origin: Origin, pos: vec2, bounds_size: vec2, text: &str) -> Text<'_, SourcedFromUI> {
         let mut writer = UI_SINGLETON.write().unwrap();
         let tint = writer.tint;
 
@@ -292,8 +292,8 @@ impl UI {
     pub fn set_resolution(res: (u32, u32)) {
         assert_ui_enabled!();
         
-        let half_size = Vector2(res.0 as f32, res.1 as f32) * 0.5;
-        UI_SINGLETON.write().unwrap().scope.set_camera(CamData { pos: Vector2(half_size.0, -half_size.1), half_size });
+        let half_size = vec2(res.0 as f32, res.1 as f32) * 0.5;
+        UI_SINGLETON.write().unwrap().scope.set_camera(CamData { pos: vec2(half_size.0, -half_size.1), half_size });
     }
 
     /// Returns the UI resolution.
@@ -333,11 +333,11 @@ impl UI {
     }
 
     /// Converts from UI-space to scope-space
-    fn process_pos(&self, origin: Origin, pos: Vector2) -> Vector2 {
+    fn process_pos(&self, origin: Origin, pos: vec2) -> vec2 {
         let origin_pivot = origin.get_pivot();
-        let pivot = Vector2(origin_pivot.0, origin_pivot.1 - 1.0); // It just works (before it didn't actually worked, not it actually does :D)
+        let pivot = vec2(origin_pivot.0, origin_pivot.1 - 1.0); // It just works (before it didn't actually worked, not it actually does :D)
 
-        return Vector2(pos.0, -pos.1) + pivot.scale(self.scope.cam_data.half_size * 2.0);
+        return vec2(pos.0, -pos.1) + pivot.scale(self.scope.cam_data.half_size * 2.0);
     }
 
     pub(crate) fn quad_to_rect(&self, quad: Quad) -> Rect {
@@ -354,17 +354,17 @@ pub enum Origin {
 }
 
 impl Origin {
-    fn get_pivot(&self) -> Vector2 {
+    fn get_pivot(&self) -> vec2 {
         match self {
-            Origin::TopLeft => Vector2(0.0, 1.0),
-            Origin::Top => Vector2(0.5, 1.0),
-            Origin::TopRight => Vector2(1.0, 1.0),
-            Origin::Left => Vector2(0.0, 0.5),
-            Origin::Center => Vector2(0.5, 0.5),
-            Origin::Right => Vector2(1.0, 0.5),
-            Origin::BottomLeft => Vector2(0.0, 0.0),
-            Origin::Bottom => Vector2(0.5, 0.0),
-            Origin::BottomRight => Vector2(1.0, 0.0),
+            Origin::TopLeft => vec2(0.0, 1.0),
+            Origin::Top => vec2(0.5, 1.0),
+            Origin::TopRight => vec2(1.0, 1.0),
+            Origin::Left => vec2(0.0, 0.5),
+            Origin::Center => vec2(0.5, 0.5),
+            Origin::Right => vec2(1.0, 0.5),
+            Origin::BottomLeft => vec2(0.0, 0.0),
+            Origin::Bottom => vec2(0.5, 0.0),
+            Origin::BottomRight => vec2(1.0, 0.0),
         }
     }
 }
@@ -373,8 +373,8 @@ impl Origin {
 #[derive(Debug, Clone)]
 pub enum Interaction {
     Hover,
-    Click(MouseInput), Scroll(Vector2),
-    DragOrHold { input: MouseInput, delta: Vector2 }
+    Click(MouseInput), Scroll(vec2),
+    DragOrHold { input: MouseInput, delta: vec2 }
 }
 
 impl Interaction {
@@ -388,7 +388,7 @@ impl Interaction {
 mod internal {
     use std::collections::HashMap;
 
-    use crate::{math::{quad::Quad, Vector2}, input::MouseInput, log_warn};
+    use crate::{math::{quad::Quad, vec2}, input::MouseInput, log_warn};
 
     use super::Interaction;
 
@@ -405,10 +405,10 @@ mod internal {
 
     pub fn fix_quad(quad: Quad) -> Quad {
         return Quad {
-            ld: Vector2(quad.ld.0, -quad.ld.1),
-            rd: Vector2(quad.rd.0, -quad.rd.1),
-            lu: Vector2(quad.lu.0, -quad.lu.1),
-            ru: Vector2(quad.ru.0, -quad.ru.1),
+            ld: vec2(quad.ld.0, -quad.ld.1),
+            rd: vec2(quad.rd.0, -quad.rd.1),
+            lu: vec2(quad.lu.0, -quad.lu.1),
+            ru: vec2(quad.ru.0, -quad.ru.1),
         }
     }
 

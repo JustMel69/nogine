@@ -1,4 +1,4 @@
-use nogine::{window::WindowCfg, math::Vector2, graphics::{Graphics, texture::Texture}, unwrap_res};
+use nogine::{window::WindowCfg, math::vec2, graphics::{Graphics, texture::Texture}, unwrap_res};
 
 const TIMMY_TEX: &[u8] = include_bytes!("res/timmy.png");
 
@@ -14,10 +14,10 @@ fn main() {
     while window.is_running() {
         window.pre_tick(None);
         
-        Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
+        Graphics::set_cam(vec2::ZERO, vec2(1.5 * window.aspect_ratio(), 1.5));
         
         // Draw Texture
-        Graphics::draw_texture(Vector2(-0.5, -0.5), Vector2::ONE, 0.0, &tex);
+        Graphics::draw_texture(vec2(-0.5, -0.5), vec2::ONE, 0.0, &tex);
         
         window.post_tick();
     }

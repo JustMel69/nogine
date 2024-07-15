@@ -1,4 +1,4 @@
-use nogine::{color::{Color, Color4}, graphics::{Graphics, ui::text::{font::{BitmapFont, FontCfg}, HorTextAlignment, VerTextAlignment}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}}, math::Vector2, unwrap_res, window::{WindowCfg, WindowMode}};
+use nogine::{color::{Color, Color4}, graphics::{Graphics, ui::text::{font::{BitmapFont, FontCfg}, HorTextAlignment, VerTextAlignment}, texture::{SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureWrapping}}, math::vec2, unwrap_res, window::{WindowCfg, WindowMode}};
 
 const FONT_DATA: &[u8] = include_bytes!("res/text.png");
 const NICE_FONT_DATA: &[u8] = include_bytes!("res/nice_text.png");
@@ -36,15 +36,15 @@ fn main() {
     while window.is_running() {
         window.pre_tick(None);
         
-        Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
+        Graphics::set_cam(vec2::ZERO, vec2(1.5 * window.aspect_ratio(), 1.5));
 
-        Graphics::set_pivot(Vector2::one(0.5));
+        Graphics::set_pivot(vec2::one(0.5));
 
-        Graphics::text(Vector2::up(0.5), Vector2(2.0, 0.15), 0.0, "monospace font").font_size(0.1).font(&font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Center).draw();
+        Graphics::text(vec2::up(0.5), vec2(2.0, 0.15), 0.0, "monospace font").font_size(0.1).font(&font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Center).draw();
 
-        let (quad, _) = Graphics::text(Vector2::up(-0.5), Vector2(3.0, 0.5), 0.0, "Very very long text that in no way in HELL fits in 12345 container bounds.\nBottom text.").font_size(0.1).font(&nice_font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Justified).word_wrapped().progress(Some(30)).draw();
+        let (quad, _) = Graphics::text(vec2::up(-0.5), vec2(3.0, 0.5), 0.0, "Very very long text that in no way in HELL fits in 12345 container bounds.\nBottom text.").font_size(0.1).font(&nice_font).ver_align(VerTextAlignment::Middle).hor_align(HorTextAlignment::Justified).word_wrapped().progress(Some(30)).draw();
 
-        Graphics::set_pivot(Vector2::ZERO);
+        Graphics::set_pivot(vec2::ZERO);
 
         Graphics::draw_debug_quad(quad, Color4::LIME);
         

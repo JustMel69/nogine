@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, shader::{Shader, SubShader, SubShaderType}, defaults::DefaultShaders, Mode, uniforms::Uniform, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
+use nogine::{graphics::{Graphics, shader::{Shader, SubShader, SubShaderType}, defaults::DefaultShaders, Mode, uniforms::Uniform, material::Material}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res};
 
 const CUSTOM_VERT: &str = r#"
 #version 330 core
@@ -31,9 +31,9 @@ fn main() {
     while window.is_running() {
         window.pre_tick(None);
 
-        Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
+        Graphics::set_cam(vec2::ZERO, vec2(1.5 * window.aspect_ratio(), 1.5));
         
-        Graphics::draw_rect(Vector2(-0.5, -0.5), Vector2::ONE, Color4::WHITE);
+        Graphics::draw_rect(vec2(-0.5, -0.5), vec2::ONE, Color4::WHITE);
         
         window.post_tick();
     }

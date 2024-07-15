@@ -1,11 +1,11 @@
 use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x4, num::SimdFloat, StdFloat}};
 
-use super::Vector2;
+use super::vec2;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Vector3(pub f32, pub f32, pub f32);
+pub struct vec3(pub f32, pub f32, pub f32);
 
-impl Vector3 {
+impl vec3 {
     pub const ZERO: Self = Self(0.0, 0.0, 0.0);
     pub const UP: Self = Self::up(1.0);
     pub const DOWN: Self = Self::down(1.0);
@@ -62,16 +62,16 @@ impl Vector3 {
     }
 
     
-    pub fn xy(self) -> Vector2 {
-        return Vector2(self.0, self.1);
+    pub fn xy(self) -> vec2 {
+        return vec2(self.0, self.1);
     }
 
-    pub fn yz(self) -> Vector2 {
-        return Vector2(self.1, self.2);
+    pub fn yz(self) -> vec2 {
+        return vec2(self.1, self.2);
     }
 
-    pub fn xz(self) -> Vector2 {
-        return Vector2(self.0, self.2);
+    pub fn xz(self) -> vec2 {
+        return vec2(self.0, self.2);
     }
 
 
@@ -253,7 +253,7 @@ impl Vector3 {
     }
 }
 
-impl Add for Vector3 {
+impl Add for vec3 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -261,13 +261,13 @@ impl Add for Vector3 {
     }
 }
 
-impl AddAssign for Vector3 {
+impl AddAssign for vec3 {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs
     }
 }
 
-impl Sub for Vector3 {
+impl Sub for vec3 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -276,7 +276,7 @@ impl Sub for Vector3 {
     }
 }
 
-impl Neg for Vector3 {
+impl Neg for vec3 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -284,7 +284,7 @@ impl Neg for Vector3 {
     }
 }
 
-impl Mul<f32> for Vector3 {
+impl Mul<f32> for vec3 {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
@@ -292,7 +292,7 @@ impl Mul<f32> for Vector3 {
     }
 }
 
-impl Div<f32> for Vector3 {
+impl Div<f32> for vec3 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
@@ -300,26 +300,26 @@ impl Div<f32> for Vector3 {
     }
 }
 
-impl Into<(f32, f32, f32)> for Vector3 {
+impl Into<(f32, f32, f32)> for vec3 {
     fn into(self) -> (f32, f32, f32) {
         return (self.0, self.1, self.2);
     }
 }
 
-impl Into<Vector3> for (f32, f32, f32) {
-    fn into(self) -> Vector3 {
-        return Vector3(self.0, self.1, self.2);
+impl Into<vec3> for (f32, f32, f32) {
+    fn into(self) -> vec3 {
+        return vec3(self.0, self.1, self.2);
     }
 }
 
-impl Display for Vector3 {
+impl Display for vec3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {}, {})", self.0, self.1, self.2)
     }
 }
 
-impl From<(u32, u32, u32)> for Vector3 {
+impl From<(u32, u32, u32)> for vec3 {
     fn from(value: (u32, u32, u32)) -> Self {
-        return Vector3(value.0 as f32, value.1 as f32, value.2 as f32);
+        return vec3(value.0 as f32, value.1 as f32, value.2 as f32);
     }
 }

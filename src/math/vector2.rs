@@ -1,9 +1,9 @@
 use std::{fmt::Display, ops::{Add, AddAssign, Div, Mul, Neg, Sub}, simd::{f32x2, num::SimdFloat, StdFloat}};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Vector2(pub f32, pub f32);
+pub struct vec2(pub f32, pub f32);
 
-impl Vector2 {
+impl vec2 {
     pub const ZERO: Self = Self(0.0, 0.0);
     pub const UP: Self = Self::up(1.0);
     pub const DOWN: Self = Self::down(1.0);
@@ -32,8 +32,8 @@ impl Vector2 {
     }
 
     /// Creates a vector in the local space of a basis
-    pub const fn local(x: f32, y: f32, basis: (Vector2, Vector2)) -> Self {
-        return Vector2(x * basis.0.0 + y * basis.1.0, x * basis.0.1 + y * basis.1.1)
+    pub const fn local(x: f32, y: f32, basis: (vec2, vec2)) -> Self {
+        return vec2(x * basis.0.0 + y * basis.1.0, x * basis.0.1 + y * basis.1.1)
     }
 
 
@@ -74,7 +74,7 @@ impl Vector2 {
     /// Rotates the vector by the specified rotation, but in a way that matches up with visual rotations.
     pub fn rotate_cw(self, rot: f32) -> Self {
         let rotated = self.rotate(rot);
-        return Vector2(rotated.0, -rotated.1);
+        return vec2(rotated.0, -rotated.1);
     }
 
     /// Performs the dot product between two vectors.
@@ -135,7 +135,7 @@ impl Vector2 {
     }
 
     pub fn average(slice: &[Self]) -> Self {
-        let mut res = Vector2::ZERO;
+        let mut res = vec2::ZERO;
         for v in slice {
             res += *v;
         }
@@ -211,7 +211,7 @@ impl Vector2 {
     }
 }
 
-impl Add for Vector2 {
+impl Add for vec2 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -219,13 +219,13 @@ impl Add for Vector2 {
     }
 }
 
-impl AddAssign for Vector2 {
+impl AddAssign for vec2 {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs
     }
 }
 
-impl Sub for Vector2 {
+impl Sub for vec2 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -234,7 +234,7 @@ impl Sub for Vector2 {
     }
 }
 
-impl Neg for Vector2 {
+impl Neg for vec2 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -242,7 +242,7 @@ impl Neg for Vector2 {
     }
 }
 
-impl Mul<f32> for Vector2 {
+impl Mul<f32> for vec2 {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
@@ -250,7 +250,7 @@ impl Mul<f32> for Vector2 {
     }
 }
 
-impl Div<f32> for Vector2 {
+impl Div<f32> for vec2 {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
@@ -258,26 +258,26 @@ impl Div<f32> for Vector2 {
     }
 }
 
-impl Into<(f32, f32)> for Vector2 {
+impl Into<(f32, f32)> for vec2 {
     fn into(self) -> (f32, f32) {
         return (self.0, self.1);
     }
 }
 
-impl Into<Vector2> for (f32, f32) {
-    fn into(self) -> Vector2 {
-        return Vector2(self.0, self.1);
+impl Into<vec2> for (f32, f32) {
+    fn into(self) -> vec2 {
+        return vec2(self.0, self.1);
     }
 }
 
-impl Display for Vector2 {
+impl Display for vec2 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.0, self.1)
     }
 }
 
-impl From<(u32, u32)> for Vector2 {
+impl From<(u32, u32)> for vec2 {
     fn from(value: (u32, u32)) -> Self {
-        return Vector2(value.0 as f32, value.1 as f32);
+        return vec2(value.0 as f32, value.1 as f32);
     }
 }

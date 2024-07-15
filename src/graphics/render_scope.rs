@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{Matrix3x3, Vector2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
+use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{Matrix3x3, vec2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
 
 use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::Text}};
 
@@ -11,7 +11,7 @@ pub struct RenderScope {
     pub(super) cam_mat: Matrix3x3,
     
     pub(super) pixels_per_unit: f32,
-    pub(super) pivot: Vector2,
+    pub(super) pivot: vec2,
 
     pub(super) snapping: Option<Snapping>,
 
@@ -32,7 +32,7 @@ impl RenderScope {
     pub(super) const fn new_global() -> Self {
         Self {
             is_global: true,
-            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO, snapping: None,
+            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: vec2::ZERO, snapping: None,
             line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
             render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
             batch_data: BatchData::new(),
@@ -42,7 +42,7 @@ impl RenderScope {
     pub const fn new() -> Self {
         Self {
             is_global: false,
-            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: Vector2::ZERO, snapping: None,
+            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: vec2::ZERO, snapping: None,
             line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
             render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
             batch_data: BatchData::new()
@@ -85,9 +85,9 @@ impl RenderScope {
 
     
     const RECT_TRIS: [u32; 6] = [0, 1, 2, 2, 3, 0];
-    pub(super) fn draw_rect(&mut self, pos: Vector2, extents: Vector2, rot: f32, colors: [Color4; 4]) -> Quad {
+    pub(super) fn draw_rect(&mut self, pos: vec2, extents: vec2, rot: f32, colors: [Color4; 4]) -> Quad {
         #[repr(C)]
-        struct Vert(Vector2, Color4);
+        struct Vert(vec2, Color4);
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
@@ -101,12 +101,12 @@ impl RenderScope {
         return internal::fix_quad(quad);
     }
 
-    pub(super) fn draw_texture(&mut self, pos: Vector2, scale: Vector2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> Quad {
+    pub(super) fn draw_texture(&mut self, pos: vec2, scale: vec2, rot: f32, uvs: Rect, colors: [Color4; 4], tex: &Texture) -> Quad {
         #[repr(C)]
-        struct Vert(Vector2, Color4, Vector2);
+        struct Vert(vec2, Color4, vec2);
 
         let tex_res = tex.dims();
-        let extents = (Vector2(tex_res.0 as f32, tex_res.1 as f32) / self.pixels_per_unit).scale(scale).scale(uvs.size());
+        let extents = (vec2(tex_res.0 as f32, tex_res.1 as f32) / self.pixels_per_unit).scale(scale).scale(uvs.size());
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
@@ -121,13 +121,13 @@ impl RenderScope {
         return internal::fix_quad(quad);
     }
 
-    pub(super) fn draw_ellipse(&mut self, center: Vector2, half_extents: Vector2, rot: f32, color: Color4) -> Quad {
+    pub(super) fn draw_ellipse(&mut self, center: vec2, half_extents: vec2, rot: f32, color: Color4) -> Quad {
         #[repr(C)]
-        struct Vert(Vector2, Color4, Vector2);
+        struct Vert(vec2, Color4, vec2);
 
         let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
-        let vert_data = [Vert(quad.ld, color, Vector2::UP), Vert(quad.lu, color, Vector2::ZERO), Vert(quad.ru, color, Vector2::RIGHT), Vert(quad.rd, color, Vector2::ONE)];
+        let vert_data = [Vert(quad.ld, color, vec2::UP), Vert(quad.lu, color, vec2::ZERO), Vert(quad.ru, color, vec2::RIGHT), Vert(quad.rd, color, vec2::ONE)];
 
         let vert_data = internal::convert_vert_data(&vert_data);
 
@@ -137,21 +137,21 @@ impl RenderScope {
         return internal::fix_quad(quad);
     }
 
-    pub(super) fn draw_polygon(&mut self, center: Vector2, half_extents: Vector2, rot: f32, sides: u32, color: Color4) {
+    pub(super) fn draw_polygon(&mut self, center: vec2, half_extents: vec2, rot: f32, sides: u32, color: Color4) {
         assert_expr!(sides >= 3, "Every polygon must have at least 3 sides.");
 
         #[repr(C)]
-        struct Vert(Vector2, Color4);
+        struct Vert(vec2, Color4);
 
         let delta_theta = (2.0 * PI) / (sides as f32);
         let mut verts = Vec::with_capacity(1 + sides as usize);
 
         let tf_mat = Matrix3x3::transform_matrix(center, rot, half_extents);
 
-        verts.push(Vert(&tf_mat * Vector2::ZERO, color));
+        verts.push(Vert(&tf_mat * vec2::ZERO, color));
         for i in 0..sides {
             let theta = delta_theta * (i as f32);
-            let mut pos = &tf_mat * (Vector2::UP.rotate(theta) - self.pivot);
+            let mut pos = &tf_mat * (vec2::UP.rotate(theta) - self.pivot);
             if let Some(s) = &self.snapping {
                 pos = s.snap(pos);
             }
@@ -171,9 +171,9 @@ impl RenderScope {
     }
 
     const LINE_TRIS: [u32; 2] = [0, 1];
-    pub(super) fn draw_line(&mut self, mut from: Vector2, mut to: Vector2, colors: [Color4; 2]) {
+    pub(super) fn draw_line(&mut self, mut from: vec2, mut to: vec2, colors: [Color4; 2]) {
         #[repr(C)]
-        struct Vert(Vector2, Color4);
+        struct Vert(vec2, Color4);
 
         from.1 = -from.1;
         to.1 = -to.1;
@@ -190,14 +190,14 @@ impl RenderScope {
         self.batch_data.send(self.render_target, state, vert_data, &Self::LINE_TRIS);
     }
 
-    pub(super) unsafe fn draw_custom_mesh(&mut self, pos: Vector2, rot: f32, scale: Vector2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
+    pub(super) unsafe fn draw_custom_mesh(&mut self, pos: vec2, rot: f32, scale: vec2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         assert_expr!(tri_data.len() % 3 == 0, "The number of indices must be a multiple of 3.");
 
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, scale);
 
         let stride = vert_attribs.iter().sum();
         let vert_data = vert_data.windows(2).step_by(stride).flat_map(|x| {
-            let mut res = &tf_mat * Vector2(x[0], x[1]);
+            let mut res = &tf_mat * vec2(x[0], x[1]);
             if let Some(s) = &self.snapping {
                 res = s.snap(res);
             }
@@ -218,7 +218,7 @@ impl RenderScope {
         };
 
         let font = text.font.unwrap();
-        let mat = Matrix3x3::transform_matrix(text.pos, text.rot, Vector2::ONE);
+        let mat = Matrix3x3::transform_matrix(text.pos, text.rot, vec2::ONE);
         let pivot_offset = -self.pivot.scale(text.bounds_size);
 
         let lines = if text.word_wrapping {
@@ -256,7 +256,7 @@ impl RenderScope {
                 }
 
                 if cursor_h > -char_spacing {
-                    font.draw_char(c, Vector2(cursor_h, cursor_v) + pivot_offset, &mat, text.tint, text.font_size, self);
+                    font.draw_char(c, vec2(cursor_h, cursor_v) + pivot_offset, &mat, text.tint, text.font_size, self);
                 }
                 
                 cursor_h = end_cursor;
@@ -284,7 +284,7 @@ impl RenderScope {
         self.batch_data.send(self.render_target, state, &vert_data, tri_data);
     }
 
-    pub(super) fn rect_positions(&mut self, pos: Vector2, extents: Vector2, rot: f32, should_fix: bool) -> Quad {
+    pub(super) fn rect_positions(&mut self, pos: vec2, extents: vec2, rot: f32, should_fix: bool) -> Quad {
         let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
         
@@ -381,7 +381,7 @@ impl RenderScope {
 }
 
 mod internal {
-    use crate::{crash, graphics::ui::text::{font::Font, precalc::{LenComm, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, Matrix3x3, Vector2}};
+    use crate::{crash, graphics::ui::text::{font::Font, precalc::{LenComm, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, Matrix3x3, vec2}};
 
     use super::Snapping;
 
@@ -390,30 +390,30 @@ mod internal {
         return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
     }
 
-    pub fn make_quad(pivot: Vector2, tf_mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
+    pub fn make_quad(pivot: vec2, tf_mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
         return if let Some(s) = snapping {
             Quad {
-                ld: s.snap(tf_mat * (Vector2::ZERO - pivot)),
-                lu: s.snap(tf_mat * (Vector2::UP - pivot)),
-                ru: s.snap(tf_mat * (Vector2::ONE - pivot)),
-                rd: s.snap(tf_mat * (Vector2::RIGHT - pivot)),
+                ld: s.snap(tf_mat * (vec2::ZERO - pivot)),
+                lu: s.snap(tf_mat * (vec2::UP - pivot)),
+                ru: s.snap(tf_mat * (vec2::ONE - pivot)),
+                rd: s.snap(tf_mat * (vec2::RIGHT - pivot)),
             }
         } else {
             Quad {
-                ld: tf_mat * (Vector2::ZERO - pivot),
-                lu: tf_mat * (Vector2::UP - pivot),
-                ru: tf_mat * (Vector2::ONE - pivot),
-                rd: tf_mat * (Vector2::RIGHT - pivot),
+                ld: tf_mat * (vec2::ZERO - pivot),
+                lu: tf_mat * (vec2::UP - pivot),
+                ru: tf_mat * (vec2::ONE - pivot),
+                rd: tf_mat * (vec2::RIGHT - pivot),
             }
         };
     }
 
     pub fn fix_quad(quad: Quad) -> Quad {
         return Quad {
-            ld: Vector2(quad.ld.0, -quad.ld.1),
-            rd: Vector2(quad.rd.0, -quad.rd.1),
-            lu: Vector2(quad.lu.0, -quad.lu.1),
-            ru: Vector2(quad.ru.0, -quad.ru.1),
+            ld: vec2(quad.ld.0, -quad.ld.1),
+            rd: vec2(quad.rd.0, -quad.rd.1),
+            lu: vec2(quad.lu.0, -quad.lu.1),
+            ru: vec2(quad.ru.0, -quad.ru.1),
         }
     }
 
@@ -470,7 +470,7 @@ pub(super) struct Snapping {
 }
 
 impl Snapping {
-    pub(super) fn snap(&self, v: Vector2) -> Vector2 {
+    pub(super) fn snap(&self, v: vec2) -> vec2 {
         return (v / self.grid_size).round() * self.grid_size;
     }
 }

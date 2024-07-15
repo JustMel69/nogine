@@ -1,4 +1,4 @@
-use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, texture::TextureFiltering, BlendingMode}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::Vector2, unwrap_res};
+use nogine::{graphics::{Graphics, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DEFAULT_RENDER_TARGET}, RenderStats, texture::TextureFiltering, BlendingMode}, window::{WindowCfg, WindowMode}, color::{Color4, Color}, math::vec2, unwrap_res};
 
 struct CustomPipeline {
     intensity: f32,
@@ -44,11 +44,11 @@ fn main() {
     while window.is_running() {
         window.pre_tick(Some(&pipeline));
         
-        Graphics::set_cam(Vector2::ZERO, Vector2(1.5 * window.aspect_ratio(), 1.5));
+        Graphics::set_cam(vec2::ZERO, vec2(1.5 * window.aspect_ratio(), 1.5));
 
-        Graphics::draw_rect(Vector2(-1.55, -0.75), Vector2::ONE, Color4::CYAN);
-        Graphics::draw_circle(Vector2(0.0, 0.25), 0.5, Color4::YELLOW);
-        Graphics::draw_polygon(Vector2(1.0, -0.25), 0.5, 0.0, 5, Color::PINK);
+        Graphics::draw_rect(vec2(-1.55, -0.75), vec2::ONE, Color4::CYAN);
+        Graphics::draw_circle(vec2(0.0, 0.25), 0.5, Color4::YELLOW);
+        Graphics::draw_polygon(vec2(1.0, -0.25), 0.5, 0.0, 5, Color::PINK);
         
         window.post_tick();
     }

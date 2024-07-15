@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use crate::assert_expr;
 
-use super::Vector2;
+use super::vec2;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Matrix3x3 {
@@ -12,12 +12,12 @@ pub struct Matrix3x3 {
 impl Matrix3x3 {
     pub const IDENTITY: Self = Self { rows: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] };
 
-    pub fn translate(&mut self, delta: Vector2) {
+    pub fn translate(&mut self, delta: vec2) {
         self.rows[0][2] += delta.0;
         self.rows[1][2] -= delta.1;
     }
 
-    pub fn scale(&mut self, mul: Vector2) {
+    pub fn scale(&mut self, mul: vec2) {
         self.rows[0][0] *= mul.0;
         self.rows[1][0] *= mul.0;
         self.rows[0][1] *= mul.1;
@@ -25,8 +25,8 @@ impl Matrix3x3 {
     }
 
     pub fn rotate(&mut self, rot: f32) {
-        let x = Vector2(self.rows[0][0], self.rows[1][0]).rotate(rot);
-        let y = Vector2(self.rows[0][1], self.rows[1][1]).rotate(rot);
+        let x = vec2(self.rows[0][0], self.rows[1][0]).rotate(rot);
+        let y = vec2(self.rows[0][1], self.rows[1][1]).rotate(rot);
 
         self.rows[0][0] = x.0;
         self.rows[1][0] = x.1;
@@ -35,7 +35,7 @@ impl Matrix3x3 {
         self.rows[1][1] = y.1;
     }
 
-    pub fn transform_matrix(pos: Vector2, rot: f32, scale: Vector2) -> Self {
+    pub fn transform_matrix(pos: vec2, rot: f32, scale: vec2) -> Self {
         let mut mat = Self::IDENTITY.clone();
         mat.translate(pos);
         mat.scale(scale);
@@ -43,13 +43,13 @@ impl Matrix3x3 {
         return mat;
     }
 
-    pub fn inv_transform_matrix(pos: Vector2, rot: f32, scale: Vector2) -> Self {
+    pub fn inv_transform_matrix(pos: vec2, rot: f32, scale: vec2) -> Self {
         let mut mat = Self::transform_matrix(pos, rot, scale);
         mat.invert();
         return mat;
     }
 
-    pub fn cam_matrix(pos: Vector2, dims: Vector2) -> Self {
+    pub fn cam_matrix(pos: vec2, dims: vec2) -> Self {
         let mut mat = Self::IDENTITY.clone();
         mat.rows[0][0] = 1.0 / dims.0;
         mat.rows[1][1] = -1.0 / dims.1;
@@ -116,11 +116,11 @@ impl Mul for &Matrix3x3 {
     }
 }
 
-impl Mul<Vector2> for &Matrix3x3 {
-    type Output = Vector2;
+impl Mul<vec2> for &Matrix3x3 {
+    type Output = vec2;
 
-    fn mul(self, rhs: Vector2) -> Self::Output {
-        return Vector2(
+    fn mul(self, rhs: vec2) -> Self::Output {
+        return vec2(
             self.rows[0][0] * rhs.0 + self.rows[0][1] * rhs.1 + self.rows[0][2],
             self.rows[1][0] * rhs.0 + self.rows[1][1] * rhs.1 + self.rows[1][2]
         );

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{color::{Color4, Color}, math::{Vector2, Rect, quad::Quad}, assert_expr, graphics::Graphics};
+use crate::{color::{Color4, Color}, math::{vec2, Rect, quad::Quad}, assert_expr, graphics::Graphics};
 
 use self::font::Font;
 
@@ -15,8 +15,8 @@ pub struct SourcedFromUI;
 pub struct Text<'a, T> {
     _phantom: PhantomData<T>,
     
-    pub(crate) pos: Vector2,
-    pub(crate) bounds_size: Vector2,
+    pub(crate) pos: vec2,
+    pub(crate) bounds_size: vec2,
     pub(crate) rot: f32,
     pub(crate) txt: &'a str,
 
@@ -80,7 +80,7 @@ impl<'a, T> Text<'a, T> {
 }
 
 impl<'a> Text<'a, SourcedFromGraphics> {
-    pub(crate) fn new(pos: Vector2, bounds_size: Vector2, rot: f32, txt: &'a str) -> Self {
+    pub(crate) fn new(pos: vec2, bounds_size: vec2, rot: f32, txt: &'a str) -> Self {
         Self {
             _phantom: PhantomData,
             pos, bounds_size, rot, txt,
@@ -112,7 +112,7 @@ impl<'a> Text<'a, SourcedFromGraphics> {
 }
 
 impl<'a> Text<'a, SourcedFromUI> {
-    pub(crate) fn new(pos: Vector2, bounds_size: Vector2, tint: Color4, txt: &'a str) -> Self {
+    pub(crate) fn new(pos: vec2, bounds_size: vec2, tint: Color4, txt: &'a str) -> Self {
         Self {
             _phantom: PhantomData,
             pos, bounds_size, rot: 0.0, txt,

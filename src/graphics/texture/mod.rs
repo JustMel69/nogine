@@ -3,7 +3,7 @@ use std::{io::{Read, Seek, BufReader}, sync::Arc};
 use image::{EncodableLayout, GenericImageView, ImageError};
 use thiserror::Error;
 
-use crate::{assert_expr, color::BColor4, math::{Rect, Vector2}, Res};
+use crate::{assert_expr, color::BColor4, math::{Rect, vec2}, Res};
 
 use super::super::gl_call;
 
@@ -201,8 +201,8 @@ impl SpriteAtlas {
         let p_size = (rect.2 * self.sprite_dims.0, rect.3 * self.sprite_dims.1);
 
         let uv_rect = Rect {
-            start: (Vector2::from(p_pos) + Vector2::one(0.1)).inv_scale(Vector2::from(tex_dims)),
-            end: (Vector2::from((p_pos.0 + p_size.0, p_pos.1 + p_size.1)) + Vector2::one(0.1)).inv_scale(Vector2::from(tex_dims)),
+            start: (vec2::from(p_pos) + vec2::one(0.1)).inv_scale(vec2::from(tex_dims)),
+            end: (vec2::from((p_pos.0 + p_size.0, p_pos.1 + p_size.1)) + vec2::one(0.1)).inv_scale(vec2::from(tex_dims)),
         };
 
         return Sprite(&self.internal, uv_rect);

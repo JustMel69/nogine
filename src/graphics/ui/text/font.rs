@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{rect::URect, Matrix3x3, Vector2}, unwrap_res};
+use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{rect::URect, Matrix3x3, vec2}, unwrap_res};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -121,12 +121,12 @@ impl Font for BitmapFont {
 }
 
 impl FontInternal for BitmapFont {
-    fn draw_char(&self, c: char, offset: Vector2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
+    fn draw_char(&self, c: char, offset: vec2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
         #[repr(C)]
-        struct Vertex(Vector2, Color4, Vector2);
+        struct Vertex(vec2, Color4, vec2);
         
         if let Some(sprite) = self.sample_char(c) {
-            let char_size = Vector2(self.char_width(c), 1.0) * font_size;
+            let char_size = vec2(self.char_width(c), 1.0) * font_size;
             let char_quad = internal::make_quad(offset, char_size, mat, scope.snapping.as_ref());
 
             let rect = sprite.rect().expand(-UV_RECT_EPSILON);
@@ -203,30 +203,30 @@ impl Font for RasterFont {
 }
 
 impl FontInternal for RasterFont {
-    fn draw_char(&self, c: char, offset: Vector2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
+    fn draw_char(&self, c: char, offset: vec2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
         todo!()
     }
 }
 
 pub(crate) trait FontInternal {
-    fn draw_char(&self, c: char, offset: Vector2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope);
+    fn draw_char(&self, c: char, offset: vec2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope);
 }
 
 
 mod internal {
-    use crate::{graphics::render_scope::Snapping, math::{quad::Quad, Matrix3x3, Vector2}};
+    use crate::{graphics::render_scope::Snapping, math::{quad::Quad, Matrix3x3, vec2}};
 
-    pub fn make_quad(offset: Vector2, size: Vector2, mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
+    pub fn make_quad(offset: vec2, size: vec2, mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
         return if let Some(s) = snapping {
             Quad {
-                ld: s.snap(mat * (Vector2::ZERO + offset)),
+                ld: s.snap(mat * (vec2::ZERO + offset)),
                 lu: s.snap(mat * (size.yvec() + offset)),
                 ru: s.snap(mat * (size + offset)),
                 rd: s.snap(mat * (size.xvec() + offset)),
             }
         } else {
             Quad {
-                ld: mat * (Vector2::ZERO + offset),
+                ld: mat * (vec2::ZERO + offset),
                 lu: mat * (size.yvec() + offset),
                 ru: mat * (size + offset),
                 rd: mat * (size.xvec() + offset),
