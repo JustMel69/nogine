@@ -1,4 +1,4 @@
-use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::{Matrix3x3, Rect}};
+use crate::{assert_expr, color::Color4, graphics::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, verts, DefaultMaterials}, math::{mat3, Rect}};
 
 use super::{gl_call, batch::TargetBatchData, RenderStats, texture::{TextureFiltering, Texture}, BlendingMode, material::Material};
 
@@ -230,7 +230,7 @@ impl Drop for RenderTexture {
 pub struct SceneRenderData<'a> {
     pub(super) products: &'a [(u8, TargetBatchData)],
     pub(super) clear_col: Color4,
-    pub(super) cam: &'a Matrix3x3
+    pub(super) cam: &'a mat3
 }
 
 impl<'a> SceneRenderData<'a> {

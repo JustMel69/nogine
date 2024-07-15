@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, hint::unreachable_unchecked};
 
-use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{Matrix3x3, vec2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
+use crate::{assert_expr, color::{Color4, Color}, graphics::{ui::text::precalc::LineSplit, Mode}, math::{mat3, vec2, Rect, quad::Quad}, utils::ptr_slice::PtrSlice};
 
 use super::{CamData, material::Material, BlendingMode, batch::{BatchData, RefBatchState}, texture::{Texture, TextureFiltering}, DefaultMaterials, pipeline::{RenderPipeline, RenderTexture, SceneRenderData, DefaultRenderPipeline}, RenderStats, DEFAULT_CAM_DATA, ui::{UI_SINGLETON, UI, text::Text}};
 
@@ -8,7 +8,7 @@ pub struct RenderScope {
     pub(super) is_global: bool,
 
     pub(super) cam_data: CamData,
-    pub(super) cam_mat: Matrix3x3,
+    pub(super) cam_mat: mat3,
     
     pub(super) pixels_per_unit: f32,
     pub(super) pivot: vec2,
@@ -32,7 +32,7 @@ impl RenderScope {
     pub(super) const fn new_global() -> Self {
         Self {
             is_global: true,
-            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: vec2::ZERO, snapping: None,
+            cam_data: DEFAULT_CAM_DATA, cam_mat: mat3::IDENTITY, pixels_per_unit: 1.0, pivot: vec2::ZERO, snapping: None,
             line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
             render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
             batch_data: BatchData::new(),
@@ -42,7 +42,7 @@ impl RenderScope {
     pub const fn new() -> Self {
         Self {
             is_global: false,
-            cam_data: DEFAULT_CAM_DATA, cam_mat: Matrix3x3::IDENTITY, pixels_per_unit: 1.0, pivot: vec2::ZERO, snapping: None,
+            cam_data: DEFAULT_CAM_DATA, cam_mat: mat3::IDENTITY, pixels_per_unit: 1.0, pivot: vec2::ZERO, snapping: None,
             line_material: None, rect_material: None, tex_material: None, ellipse_material: None, custom_material: None,
             render_target: 0, clear_col: Color4::BLACK, blending: BlendingMode::AlphaMix,
             batch_data: BatchData::new()
@@ -89,7 +89,7 @@ impl RenderScope {
         #[repr(C)]
         struct Vert(vec2, Color4);
 
-        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let tf_mat = mat3::transform_matrix(pos, rot, extents);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
         let vert_data = [Vert(quad.ld, colors[0]), Vert(quad.lu, colors[1]), Vert(quad.ru, colors[2]), Vert(quad.rd, colors[3])];
         
@@ -108,7 +108,7 @@ impl RenderScope {
         let tex_res = tex.dims();
         let extents = (vec2(tex_res.0 as f32, tex_res.1 as f32) / self.pixels_per_unit).scale(scale).scale(uvs.size());
 
-        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let tf_mat = mat3::transform_matrix(pos, rot, extents);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
         let vert_data = [Vert(quad.ld, colors[0], uvs.lu()), Vert(quad.lu, colors[1], uvs.ld()), Vert(quad.ru, colors[2], uvs.rd()), Vert(quad.rd, colors[3], uvs.ru())];
 
@@ -125,7 +125,7 @@ impl RenderScope {
         #[repr(C)]
         struct Vert(vec2, Color4, vec2);
 
-        let tf_mat = Matrix3x3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
+        let tf_mat = mat3::transform_matrix(center - half_extents, rot, half_extents * 2.0);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
         let vert_data = [Vert(quad.ld, color, vec2::UP), Vert(quad.lu, color, vec2::ZERO), Vert(quad.ru, color, vec2::RIGHT), Vert(quad.rd, color, vec2::ONE)];
 
@@ -146,7 +146,7 @@ impl RenderScope {
         let delta_theta = (2.0 * PI) / (sides as f32);
         let mut verts = Vec::with_capacity(1 + sides as usize);
 
-        let tf_mat = Matrix3x3::transform_matrix(center, rot, half_extents);
+        let tf_mat = mat3::transform_matrix(center, rot, half_extents);
 
         verts.push(Vert(&tf_mat * vec2::ZERO, color));
         for i in 0..sides {
@@ -193,7 +193,7 @@ impl RenderScope {
     pub(super) unsafe fn draw_custom_mesh(&mut self, pos: vec2, rot: f32, scale: vec2, vert_data: &[f32], tri_data: &[u32], vert_attribs: &[usize], textures: &[&Texture]) {
         assert_expr!(tri_data.len() % 3 == 0, "The number of indices must be a multiple of 3.");
 
-        let tf_mat = Matrix3x3::transform_matrix(pos, rot, scale);
+        let tf_mat = mat3::transform_matrix(pos, rot, scale);
 
         let stride = vert_attribs.iter().sum();
         let vert_data = vert_data.windows(2).step_by(stride).flat_map(|x| {
@@ -213,12 +213,12 @@ impl RenderScope {
         assert_expr!(text.font.is_some(), "A font was not provided!");
 
         let bounds_quad = {
-            let bounds_mat = Matrix3x3::transform_matrix(text.pos, text.rot, text.bounds_size);
+            let bounds_mat = mat3::transform_matrix(text.pos, text.rot, text.bounds_size);
             internal::make_quad(self.pivot, &bounds_mat, self.snapping.as_ref())
         };
 
         let font = text.font.unwrap();
-        let mat = Matrix3x3::transform_matrix(text.pos, text.rot, vec2::ONE);
+        let mat = mat3::transform_matrix(text.pos, text.rot, vec2::ONE);
         let pivot_offset = -self.pivot.scale(text.bounds_size);
 
         let lines = if text.word_wrapping {
@@ -285,7 +285,7 @@ impl RenderScope {
     }
 
     pub(super) fn rect_positions(&mut self, pos: vec2, extents: vec2, rot: f32, should_fix: bool) -> Quad {
-        let tf_mat = Matrix3x3::transform_matrix(pos, rot, extents);
+        let tf_mat = mat3::transform_matrix(pos, rot, extents);
         let quad = internal::make_quad(self.pivot, &tf_mat, self.snapping.as_ref());
         
         return if should_fix { internal::fix_quad(quad) } else { quad };
@@ -353,7 +353,7 @@ impl RenderScope {
         };
 
         self.cam_data = cam_data;
-        self.cam_mat = Matrix3x3::cam_matrix(cam_pos, cam_data.half_size);
+        self.cam_mat = mat3::cam_matrix(cam_pos, cam_data.half_size);
     }
 
     pub(super) fn set_snapping(&mut self, snapping: Option<Snapping>) {
@@ -381,7 +381,7 @@ impl RenderScope {
 }
 
 mod internal {
-    use crate::{crash, graphics::ui::text::{font::Font, precalc::{LenComm, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, Matrix3x3, vec2}};
+    use crate::{crash, graphics::ui::text::{font::Font, precalc::{LenComm, LenLexer}, HorTextAlignment, VerTextAlignment}, math::{quad::Quad, mat3, vec2}};
 
     use super::Snapping;
 
@@ -390,7 +390,7 @@ mod internal {
         return unsafe { std::slice::from_raw_parts(src.as_ptr() as *const f32, src.len() * mul) };
     }
 
-    pub fn make_quad(pivot: vec2, tf_mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
+    pub fn make_quad(pivot: vec2, tf_mat: &mat3, snapping: Option<&Snapping>) -> Quad {
         return if let Some(s) = snapping {
             Quad {
                 ld: s.snap(tf_mat * (vec2::ZERO - pivot)),

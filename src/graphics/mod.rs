@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use crate::{math::{vec2, Matrix3x3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
+use crate::{math::{vec2, mat3, Rect, quad::Quad}, color::{Color4, Color}, log_info, window::Window, assert_expr, graphics::defaults::{DefaultShaders, DefaultMaterials}};
 
 use self::{material::Material, pipeline::{RenderPipeline, RenderTexture}, render_scope::{RenderScope, Snapping}, texture::{Sprite, Texture}, ui::{text::{SourcedFromGraphics, Text}, UI}};
 
@@ -310,7 +310,7 @@ impl Graphics {
 
     /// Returns the camera matrix from the current camera config.
     /// - This matrix will not change for the global render scope when `set_cam` is called until the next frame.
-    pub fn get_cam_matrix() -> Matrix3x3 {
+    pub fn get_cam_matrix() -> mat3 {
         return GRAPHICS.read().unwrap().active_scope.cam_mat.clone();
     }
 

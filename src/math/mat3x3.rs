@@ -4,12 +4,13 @@ use crate::assert_expr;
 
 use super::vec2;
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Matrix3x3 {
+pub struct mat3 {
     rows: [[f32; 3]; 3],
 }
 
-impl Matrix3x3 {
+impl mat3 {
     pub const IDENTITY: Self = Self { rows: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]] };
 
     pub fn translate(&mut self, delta: vec2) {
@@ -101,11 +102,11 @@ impl Matrix3x3 {
     }
 }
 
-impl Mul for &Matrix3x3 {
-    type Output = Matrix3x3;
+impl Mul for &mat3 {
+    type Output = mat3;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut res = Matrix3x3 { rows: [[0.0; 3]; 3] };
+        let mut res = mat3 { rows: [[0.0; 3]; 3] };
         for i in 0..3 {
             let (a, b, c) = (self.rows[i][0], self.rows[i][1], self.rows[i][2]);
             for j in 0..3 {
@@ -116,7 +117,7 @@ impl Mul for &Matrix3x3 {
     }
 }
 
-impl Mul<vec2> for &Matrix3x3 {
+impl Mul<vec2> for &mat3 {
     type Output = vec2;
 
     fn mul(self, rhs: vec2) -> Self::Output {

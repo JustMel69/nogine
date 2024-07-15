@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{graphics::verts::set_vertex_attribs, math::Matrix3x3, assert_expr, utils::ptr_slice::PtrSlice};
+use crate::{graphics::verts::set_vertex_attribs, math::mat3, assert_expr, utils::ptr_slice::PtrSlice};
 
 use super::{buffers::GlVAO, gl_bindings::buffer::{GlBuffer, GlBufferKind, GlBufferUsage}, gl_call, material::Material, texture::{Texture, TextureCore}, BlendingMode};
 
@@ -88,7 +88,7 @@ pub struct BatchProduct {
 }
 
 impl BatchProduct {
-    pub fn render(&self, cam: &Matrix3x3) {
+    pub fn render(&self, cam: &mat3) {
         self.vao.bind();
         self.vbo.bind();
         self.ebo.bind();

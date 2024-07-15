@@ -9,7 +9,7 @@ pub mod quad;
 // reexports to not break literally everything
 pub use vector3::vec3;
 pub use vector2::vec2;
-pub use mat3x3::Matrix3x3;
+pub use mat3x3::mat3;
 pub use rect::Rect;
 
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{rect::URect, Matrix3x3, vec2}, unwrap_res};
+use crate::{assert_expr, color::Color4, graphics::{consts::UV_RECT_EPSILON, render_scope::RenderScope, texture::{atlasgen::AtlasBuilder, SprRect, Sprite, SpriteAtlas, Texture, TextureCfg, TextureFiltering, TextureFormat, TextureWrapping}, Mode}, math::{rect::URect, mat3, vec2}, unwrap_res};
 
 #[allow(private_bounds)]
 pub trait Font : FontInternal {
@@ -121,7 +121,7 @@ impl Font for BitmapFont {
 }
 
 impl FontInternal for BitmapFont {
-    fn draw_char(&self, c: char, offset: vec2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
+    fn draw_char(&self, c: char, offset: vec2, mat: &mat3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
         #[repr(C)]
         struct Vertex(vec2, Color4, vec2);
         
@@ -203,20 +203,20 @@ impl Font for RasterFont {
 }
 
 impl FontInternal for RasterFont {
-    fn draw_char(&self, c: char, offset: vec2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
+    fn draw_char(&self, c: char, offset: vec2, mat: &mat3, tint: Color4, font_size: f32, scope: &mut RenderScope) {
         todo!()
     }
 }
 
 pub(crate) trait FontInternal {
-    fn draw_char(&self, c: char, offset: vec2, mat: &Matrix3x3, tint: Color4, font_size: f32, scope: &mut RenderScope);
+    fn draw_char(&self, c: char, offset: vec2, mat: &mat3, tint: Color4, font_size: f32, scope: &mut RenderScope);
 }
 
 
 mod internal {
-    use crate::{graphics::render_scope::Snapping, math::{quad::Quad, Matrix3x3, vec2}};
+    use crate::{graphics::render_scope::Snapping, math::{quad::Quad, mat3, vec2}};
 
-    pub fn make_quad(offset: vec2, size: vec2, mat: &Matrix3x3, snapping: Option<&Snapping>) -> Quad {
+    pub fn make_quad(offset: vec2, size: vec2, mat: &mat3, snapping: Option<&Snapping>) -> Quad {
         return if let Some(s) = snapping {
             Quad {
                 ld: s.snap(mat * (vec2::ZERO + offset)),
