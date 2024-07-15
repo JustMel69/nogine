@@ -78,5 +78,5 @@ impl Display for Version {
 }
 
 pub fn version() -> Version {
-    return Version { major: 0, minor: 3, patch: 2 };
+    return Version { major: 0, minor: 4, patch: 0 };
 }
