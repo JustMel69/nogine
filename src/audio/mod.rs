@@ -1,257 +1,390 @@
-use rodio::{OutputStream, Sink, OutputStreamHandle, SpatialSink};
+use std::{collections::HashMap, sync::Arc};
 
-use crate::{log_info, log_error, crash, log_warn};
+use al_bindings::{buffer::ALBuffer, context::ALContext, device::ALDevice, source::ALSourcePositioning};
+use uuid::Uuid;
+
+use crate::{crash, log_info, log_warn, math::{vec2, vec3}, unwrap_res};
 
 use self::{clip::AudioClip, channels::AudioChannel};
 
 pub mod clip;
 pub mod channels;
+mod al;
+mod al_bindings;
+
+/*
+ * I'll explain some design choices about this.
+ * First, there's a context per channel, this is to be able to easily regulate the volume per channel.
+ */
 
 // TODO: Make this shit less unsafe
 static mut AUDIO: Option<Audio> = None;
 
-struct AudioPlayer {
-    volume: f32,
-    kind: AudioPlayerType,
-}
+pub type AudioChannelID = u32;
 
-impl AudioPlayer {
-    fn new(volume: f32, kind: AudioPlayerType) -> Self {
-        return Self { volume, kind };
-    }
-
-    fn set_volume(&mut self, volume: f32, inherited_volume: f32) {
-        let volume = volume * inherited_volume;
-        match &self.kind {
-            AudioPlayerType::Simple(x) => x.set_volume(volume),
-            AudioPlayerType::Panned(x) => x.set_volume(volume),
-        }
-    }
-
-    fn set_volume_inherited(&mut self, inherited_volume: f32) {
-        self.set_volume(self.volume, inherited_volume);
-    }
-
-    fn pause(&self) {
-        match &self.kind {
-            AudioPlayerType::Simple(x) => x.pause(),
-            AudioPlayerType::Panned(x) => x.pause(),
-        }
-    }
-
-    fn stop(&self) {
-        match &self.kind {
-            AudioPlayerType::Simple(x) => x.stop(),
-            AudioPlayerType::Panned(x) => x.stop(),
-        }
-    }
-
-    fn play(&self) {
-        match &self.kind {
-            AudioPlayerType::Simple(x) => x.play(),
-            AudioPlayerType::Panned(x) => x.play(),
-        }
-    }
-
-    fn empty(&self) -> bool {
-        match &self.kind {
-            AudioPlayerType::Simple(x) => x.empty(),
-            AudioPlayerType::Panned(x) => x.empty(),
-        }
-    }
-
-    fn is_paused(&self) -> bool {
-        match &self.kind {
-            AudioPlayerType::Simple(x) => x.is_paused(),
-            AudioPlayerType::Panned(x) => x.is_paused(),
-        }
-    }
-}
-
-enum AudioPlayerType {
-    Simple(Sink),
-    Panned(SpatialSink),
-}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AudioHandle(Arc<Uuid>, AudioChannelID);
 
 
 /// Main struct for Audio playing.
 pub struct Audio {
-    _stream: OutputStream,
-    stream_handle: OutputStreamHandle,
-    channels: Vec<(&'static str, AudioChannel)>,
-    target_channel: &'static str,
+    al_api: Arc<al_sys::AlApi>,
+    
+    _device: Arc<ALDevice>,
+    context: ALContext,
+
+    channels: Vec<(u32, AudioChannel)>,
+    buffers: HashMap<Uuid, Arc<ALBuffer>>,
 }
 
 impl Audio {
-    pub const DEFAULT_CHANNEL: &'static str = "default";
-    
     fn new() -> Self {
-        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-        Self { _stream, stream_handle, channels: vec![(Self::DEFAULT_CHANNEL, AudioChannel::new(1.0))], target_channel: Self::DEFAULT_CHANNEL }
+        let al_api = Arc::new(unwrap_res!(al_sys::AlApi::load_default()));
+        //unsafe { al::load_common(&al_api) };
+        
+        let device = ALDevice::new(None, al_api.clone());
+        let context = ALContext::new(device.clone(), al_api.clone());
+        context.mark_as_current();
+
+        return Self { al_api, _device: device, context, channels: Vec::new(), buffers: HashMap::new() };
     }
     
     pub(crate) fn init() {
         unsafe { AUDIO = Some(Self::new()) };
-        
+
         log_info!("Audio initialized.");
     }
 
     /// Plays an audio clip.
-    pub fn play(clip: &AudioClip, loops: bool, volume: f32) {
-        Self::play_ext(clip, volume, loops, None);
+    /// - Default `volume` is `0.0`.
+    pub fn play(clip: &AudioClip, channel_id: AudioChannelID, loops: bool, volume: f32) -> AudioHandle {
+        Self::play_panned_ext(clip, channel_id, loops, volume, 1.0, 0.0)
     }
 
     /// Plays an audio clip with a certain panning.
-    pub fn play_ext(clip: &AudioClip, volume: f32, loops: bool, panning: Option<f32>) {
+    /// - Default `volume` is `0.0`.
+    /// - Default `panning` is `0.0`, value is clamped to range `[-0.5, 0.5]`.
+    pub fn play_panned(clip: &AudioClip, channel_id: AudioChannelID, loops: bool, volume: f32, panning: f32) -> AudioHandle {
+        Self::play_panned_ext(clip, channel_id, loops, volume, 1.0, panning)
+    }
+
+    /// Plays an audio clip with a certain panning and pitch.
+    /// - Default `volume` is `0.0`.
+    /// - Default `pitch` is `1.0`. Values less or equal to `0.0` will be clamped to `f32::EPSILON`. Doubling this value increases the pitch an octave.
+    /// - Default `panning` is `0.0`, value is clamped to range `[-0.5, 0.5]`.
+    pub fn play_panned_ext(clip: &AudioClip, channel_id: AudioChannelID, loops: bool, volume: f32, pitch: f32, panning: f32) -> AudioHandle {
         let audio = unsafe { &mut AUDIO.as_mut().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(channel_id) {
+            Some(x) => x,
+            None => crash!("Audio channel {channel_id} doesn't exist."),
+        };
+
+        return AudioHandle(
+            audio.channels[index].1.play(clip, loops, volume, pitch, if panning == 0.0 { ALSourcePositioning::Global } else { ALSourcePositioning::Panned(panning) }, &mut audio.buffers, audio.context.position()),
+            channel_id,
+        );
+    }
+
+    /// Plays an audio clip with a certain panning.
+    /// - Default `volume` is `0.0`.
+    pub fn play_at(clip: &AudioClip, channel_id: AudioChannelID, loops: bool, volume: f32, pos: vec3, distance_range: vec2) -> AudioHandle {
+        Self::play_at_ext(clip, channel_id, loops, volume, 1.0, pos, distance_range)
+    }
+
+    /// Plays an audio clip with a certain panning and pitch.
+    /// - Default `volume` is `0.0`.
+    /// - Default `pitch` is `1.0`. Values less or equal to `0.0` will be clamped to `f32::EPSILON`. Doubling this value increases the pitch an octave.
+    pub fn play_at_ext(clip: &AudioClip, channel_id: AudioChannelID, loops: bool, volume: f32, pitch: f32, pos: vec3, distance_range: vec2) -> AudioHandle {
+        let audio = unsafe { &mut AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(channel_id) {
+            Some(x) => x,
+            None => crash!("Audio channel {channel_id} doesn't exist."),
+        };
+
+        return AudioHandle(
+            audio.channels[index].1.play(clip, loops, volume, pitch, ALSourcePositioning::Space { pos, dist_range: distance_range }, &mut audio.buffers, audio.context.position()),
+            channel_id,
+        );
+    }
+
+    /// Rewinds a clip.
+    pub fn rewind(handle: &AudioHandle) {
+        let audio = unsafe { &AUDIO.as_ref().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => return,
         };
 
-        audio.channels[index].1.play(clip, volume, loops, panning, &audio.stream_handle);
+        audio.channels[index].1.rewind(handle);
     }
 
     /// Pauses a clip.
-    pub fn pause(clip: &AudioClip) {
+    pub fn pause(handle: &AudioHandle) {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => return,
         };
 
-        audio.channels[index].1.pause(clip);
+        audio.channels[index].1.pause(handle);
     }
 
     /// Resumes a clip.
-    pub fn resume(clip: &AudioClip) {
+    pub fn resume(handle: &AudioHandle) {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => return,
         };
 
-        audio.channels[index].1.resume(clip);
+        audio.channels[index].1.resume(handle);
     }
 
     /// Stops a clip.
-    pub fn stop(clip: &AudioClip) {
+    pub fn stop(handle: &AudioHandle) {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => return,
         };
 
-        audio.channels[index].1.stop(clip);
+        audio.channels[index].1.stop(handle);
     }
 
     /// Checks if a clip is actually playing.
-    pub fn is_fully_playing(clip: &AudioClip) -> bool {
+    pub fn is_fully_playing(handle: &AudioHandle) -> bool {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => crash!("Invalid target audio channel."),
         };
 
-        return audio.channels[index].1.is_fully_playing(clip);
+        return audio.channels[index].1.is_fully_playing(handle);
     }
 
     /// Checks if a clip is playing or paused.
-    pub fn is_playing_or_paused(clip: &AudioClip) -> bool {
+    pub fn is_playing_or_paused(handle: &AudioHandle) -> bool {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => crash!("Invalid target audio channel."),
         };
 
-        return audio.channels[index].1.is_playing_or_paused(clip);
+        return audio.channels[index].1.is_playing_or_paused(handle);
     }
 
     /// Checks if the clip is paused.
-    pub fn is_paused(clip: &AudioClip) -> bool {
+    pub fn is_paused(handle: &AudioHandle) -> bool {
         let audio = unsafe { &AUDIO.as_ref().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => crash!("Invalid target audio channel."),
         };
 
-        return audio.channels[index].1.is_paused(clip);
-    }
-
-    /// Sets the target channel
-    pub fn set_target(channel: &'static str) {
-        let audio = unsafe { AUDIO.as_mut().unwrap() };
-
-        if audio.channels.iter().any(|x| x.0 == channel) {
-            audio.target_channel = channel;
-        } else {
-            log_error!("\"{}\" is not a valid audio channel! All further audio calls will not go through, or may even crash.", channel);
-            audio.target_channel = "";
-        }
+        return audio.channels[index].1.is_paused(handle);
     }
 
     /// Sets the volume of the clip
-    pub fn set_volume(clip: &AudioClip, volume: f32) {
+    pub fn set_volume(handle: &AudioHandle, volume: f32) {
         let audio = unsafe { AUDIO.as_mut().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => crash!("Invalid target audio channel."),
         };
 
-        return audio.channels[index].1.set_volume(clip, volume);
+        return audio.channels[index].1.set_volume(handle, volume, audio.context.position());
     }
 
     /// Returns the volume of the clip, or `None` if it's not playing
-    pub fn get_volume(clip: &AudioClip) -> Option<f32> {
+    pub fn get_volume(handle: &AudioHandle) -> Option<f32> {
         let audio = unsafe { AUDIO.as_mut().unwrap() };
 
-        let index = match audio.get_channel_index() {
+        let index = match audio.get_channel_index(handle.1) {
             Some(x) => x,
             None => crash!("Invalid target audio channel."),
         };
 
-        return audio.channels[index].1.get_volume(clip);
+        return audio.channels[index].1.get_volume(handle);
+    }
+
+    /// Returns the volume of the clip, scaled by channel volume and distance if applicable, or `None` if it's not playing
+    pub fn get_scaled_volume(handle: &AudioHandle) -> Option<f32> {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.get_scaled_volume(handle);
+    }
+
+    /// Sets the pan of the clip.<br>
+    /// Pan will be clamped between `-0.5` and `0.5`.
+    pub fn set_pan(handle: &AudioHandle, pan: f32) {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.set_pan(handle, pan);
+    }
+
+    /// Returns the pan of the clip, or `None` if it's not playing or isn't panned.
+    pub fn get_pan(handle: &AudioHandle) -> Option<f32> {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.get_pan(handle);
+    }
+
+    /// Sets the pan of the clip.<br>
+    /// - Pan will be clamped between `f32::EPSILON` and `f32::INFINITY`.
+    /// - Each doubling equals a pitch shift of one octave (12 semitones). Default is `1.0`.
+    pub fn set_pitch(handle: &AudioHandle, pitch: f32) {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.set_pitch(handle, pitch);
+    }
+
+    /// Returns the pitch of the clip, or `None` if it's not playing.
+    pub fn get_pitch(handle: &AudioHandle) -> Option<f32> {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.get_pitch(handle);
+    }
+
+    /// Sets if a clip should loop.
+    pub fn set_looping(handle: &AudioHandle, loops: bool) {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.set_looping(handle, loops);
+    }
+
+    /// Returns if the clip loops, or `None` if it's not playing.
+    pub fn get_looping(handle: &AudioHandle) -> Option<bool> {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.get_looping(handle);
+    }
+
+    /// Sets the 3D pos and distances of the clip.<br>
+    /// Both the min distance and the max distance will be made greater than 0, and the max greater than min.
+    pub fn set_pos_and_distance(handle: &AudioHandle, pos: vec3, distance_range: vec2) {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.set_pos_and_distance(handle, pos, distance_range);
+    }
+
+    /// Returns the 3D pos and distances of the clip, or `None` if it's not playing or isn't spatial.
+    pub fn get_pos_and_distance(handle: &AudioHandle) -> Option<(vec3, vec2)> {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        let index = match audio.get_channel_index(handle.1) {
+            Some(x) => x,
+            None => crash!("Invalid target audio channel."),
+        };
+
+        return audio.channels[index].1.get_pos_and_distance(handle);
     }
 
     /// Sets the volume of a channel
-    pub fn set_channel_volume(channel: &'static str, volume: f32) {
+    pub fn set_channel_volume(channel_id: AudioChannelID, volume: f32) {
         let audio = unsafe { AUDIO.as_mut().unwrap() };
 
-        if let Some(index) = audio.channels.iter().position(|x| x.0 == channel) {
-            audio.channels[index].1.set_channel_volume(volume);
+        if let Some(index) = audio.channels.iter().position(|x| x.0 == channel_id) {
+            audio.channels[index].1.set_channel_volume(volume, audio.context.position());
         } else {
-            log_warn!("\"{}\" is not a valid audio channel!", channel);
+            log_warn!("Channel {} is not a valid audio channel!", channel_id);
         }
     }
 
     /// Returns the volume of a channel
-    pub fn get_channel_volume(channel: &'static str) -> f32 {
+    pub fn get_channel_volume(channel_id: AudioChannelID) -> f32 {
         let audio = unsafe { AUDIO.as_mut().unwrap() };
 
-        if let Some(index) = audio.channels.iter().position(|x| x.0 == channel) {
+        if let Some(index) = audio.channels.iter().position(|x| x.0 == channel_id) {
             return audio.channels[index].1.get_channel_volume();
         } else {
-            crash!("\"{}\" is not a valid audio channel!", channel);
+            crash!("Channel {} is not a valid audio channel!", channel_id);
         }
     }
 
-    /// Creates an audio channel
-    pub fn create_channel(name: &'static str, volume: f32) {
+    /// Sets the global volume
+    pub fn set_master_volume(volume: f32) {
         let audio = unsafe { AUDIO.as_mut().unwrap() };
-
-        log_info!("Audio channel \"{name}\" created!");
-        audio.channels.push((name, AudioChannel::new(volume)));
+        audio.context.set_gain(volume);
     }
 
-    fn get_channel_index(&self) -> Option<usize> {
-        return self.channels.iter().position(|x| x.0 == self.target_channel);
+    /// Returns the global volume
+    pub fn get_master_volume() -> f32 {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+        return audio.context.gain();
+    }
+
+    /// Creates an audio channel
+    pub fn create_channel(channel_id: AudioChannelID, volume: f32) {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        log_info!("Audio channel {channel_id} created!");
+        audio.channels.push((channel_id, AudioChannel::new(volume, audio.al_api.clone())));
+    }
+
+    pub fn set_listener_position(pos: vec3) {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+        audio.context.set_position(pos);
+    }
+
+    pub(crate) fn tick() {
+        let audio = unsafe { AUDIO.as_mut().unwrap() };
+
+        for (_, channel) in &mut audio.channels {
+            channel.tick(audio.context.position());
+        }
+    }
+
+    fn get_channel_index(&self, channel_id: AudioChannelID) -> Option<usize> {
+        return self.channels.iter().position(|x| x.0 == channel_id);
     }
 }

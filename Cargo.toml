@@ -13,11 +13,13 @@ fontdue = "0.8.0"
 gl = "0.14.0"
 glfw = "0.52.0"
 image = "0.24.7"
-rodio = { version = "0.17.1", default-features = false, features = ["wav"] }
+al-sys = "0.6.1"
 thiserror = "1.0.48"
 ttf-parser = "0.20.0"
 uuid = { version = "1.4.1", features = ["v4"] }
 gamedev-math = { git = "https://github.com/JustMel69/gamedev-math.git" }
+hound = "3.5.1"
 
 [features]
 gl_debug = []
+al_debug = []
