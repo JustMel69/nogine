@@ -1,5 +1,7 @@
+use std::ops::Index;
+
 #[derive(Clone)]
-pub struct Heap<T: PartialOrd> {
+pub struct Heap<T> {
     vec: Vec<T>,
 }
 
@@ -99,6 +101,14 @@ impl<T: PartialOrd> Heap<T> {
 
             break;
         }
+    }
+}
+
+impl<T> Index<usize> for Heap<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.vec[index]
     }
 }
 
