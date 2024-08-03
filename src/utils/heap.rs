@@ -60,6 +60,18 @@ impl<T: PartialOrd> Heap<T> {
         return res;
     }
 
+    pub fn remove(&mut self, index: usize) -> Option<T> {
+        let len = self.vec.len();
+        if self.len() == 0 || index >= len {
+            return None;
+        }
+
+        self.vec.swap(index, len - 1);
+        let res = self.vec.pop();
+        self.sink_up(index);
+        return res;
+    }
+
     fn sink_down(&mut self, mut index: usize) {
         while index > 0 {
             let parent = (index - 1) / 2;
