@@ -133,7 +133,7 @@ impl ControllerSnapshot {
             let left_stick = mapping.left_stick();
             self.left_stick = unsafe { vec2(
                 if left_stick.0 != -1 && left_stick.0 < axes_count { axes.add(left_stick.0 as usize).read() } else { 0.0 },
-                if left_stick.1 != -1 && left_stick.1 < axes_count { axes.add(left_stick.1 as usize).read() } else { 0.0 },
+                if left_stick.1 != -1 && left_stick.1 < axes_count { -axes.add(left_stick.1 as usize).read() } else { 0.0 },
             ) };
         }
 
@@ -141,7 +141,7 @@ impl ControllerSnapshot {
             let right_stick = mapping.left_stick();
             self.right_stick = unsafe { vec2(
                 if right_stick.0 != -1 && right_stick.0 < axes_count { axes.add(right_stick.0 as usize).read() } else { 0.0 },
-                if right_stick.1 != -1 && right_stick.1 < axes_count { axes.add(right_stick.1 as usize).read() } else { 0.0 },
+                if right_stick.1 != -1 && right_stick.1 < axes_count { -axes.add(right_stick.1 as usize).read() } else { 0.0 },
             ) };
         }
 
