@@ -4,6 +4,9 @@ use crate::math::vec2;
 
 use super::gl_call;
 
+pub mod controller;
+pub mod controller_mapping;
+
 #[derive(Clone, Copy, Debug)]
 pub enum InputKind {
     Press, Hold, Release
