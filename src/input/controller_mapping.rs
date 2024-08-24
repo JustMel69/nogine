@@ -156,8 +156,8 @@ impl ControllerMappings {
         return None;
     }
     
-    pub fn layout(&self) -> &ControllerLayout {
-        &self.layout
+    pub fn layout(&self) -> ControllerLayout {
+        self.layout
     }
     
     pub fn name(&self) -> &str {

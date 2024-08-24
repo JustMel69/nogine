@@ -1,6 +1,8 @@
+use glfw::ffi::{glfwGetJoystickAxes, glfwGetJoystickButtons, glfwGetJoystickHats};
+
 use crate::math::vec2;
 
-use super::controller_mapping::ControllerLayout;
+use super::controller_mapping::{ControllerLayout, ControllerMappings};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
@@ -61,6 +63,10 @@ pub struct ControllerSnapshot {
 }
 
 impl ControllerSnapshot {
+    pub fn new(layout: ControllerLayout) -> Self {
+        Self { left_stick: vec2::ZERO, right_stick: vec2::ZERO, button_flags: 0, layout }
+    }
+
     pub fn left_stick(&self) -> vec2 {
         self.left_stick
     }
@@ -107,5 +113,83 @@ impl ControllerSnapshot {
     fn button_state(&self, button: InternalControllerInput) -> u8 {
         let bit = button as u32;
         return ((self.button_flags >> (bit * 2)) & 0b11) as u8;
+    }
+
+    pub(super) fn flush(&mut self) {
+        const FLUSH_MASK: u32 = 0x5555_5555; // 0b_01010_0101_0101...
+        let mut x = self.button_flags & FLUSH_MASK;
+        x |= x << 1; // Copy bit B to A
+        self.button_flags = x;
+    }
+
+    pub(super) fn update(&mut self, mapping: &ControllerMappings) -> bool {
+        let mut axes_count = 0;
+        let axes = unsafe { glfwGetJoystickAxes(0, &mut axes_count) };
+        if axes.is_null() {
+            return false;
+        }
+
+        {
+            let left_stick = mapping.left_stick();
+            self.left_stick = unsafe { vec2(
+                if left_stick.0 != -1 && left_stick.0 < axes_count { axes.add(left_stick.0 as usize).read() } else { 0.0 },
+                if left_stick.1 != -1 && left_stick.1 < axes_count { axes.add(left_stick.1 as usize).read() } else { 0.0 },
+            ) };
+        }
+
+        {
+            let right_stick = mapping.left_stick();
+            self.right_stick = unsafe { vec2(
+                if right_stick.0 != -1 && right_stick.0 < axes_count { axes.add(right_stick.0 as usize).read() } else { 0.0 },
+                if right_stick.1 != -1 && right_stick.1 < axes_count { axes.add(right_stick.1 as usize).read() } else { 0.0 },
+            ) };
+        }
+
+        let mut button_count = 0;
+        let buttons = unsafe { glfwGetJoystickButtons(0, &mut button_count) };
+
+        macro_rules! set_button_flag {
+            ($map:expr, $input:expr) => {
+                {
+                    let x = $map;
+                    if x != -1 && x < button_count { self.set_state_flag($input, unsafe { buttons.add(x as usize).read() } > 0) }
+                }
+            };
+        }
+
+        set_button_flag!(mapping.a(), InternalControllerInput::A);
+        set_button_flag!(mapping.b(), InternalControllerInput::B);
+        set_button_flag!(mapping.x(), InternalControllerInput::X);
+        set_button_flag!(mapping.y(), InternalControllerInput::Y);
+
+        set_button_flag!(mapping.l1(), InternalControllerInput::L);
+        set_button_flag!(mapping.l2(), InternalControllerInput::L2);
+        set_button_flag!(mapping.l3(), InternalControllerInput::L3);
+
+        set_button_flag!(mapping.r1(), InternalControllerInput::R);
+        set_button_flag!(mapping.r2(), InternalControllerInput::R2);
+        set_button_flag!(mapping.r3(), InternalControllerInput::R3);
+
+        set_button_flag!(mapping.start(), InternalControllerInput::Start);
+        //set_button_flag!(mapping.select(), InternalControllerInput::Select);
+
+        let mut hat_count = 0;
+        let hats = unsafe { glfwGetJoystickHats(0, &mut hat_count) };
+        
+        if hat_count >= 1 {
+            let hat_val = unsafe { hats.read() } as i32;
+            if mapping.dpad().up() != -1 { self.set_state_flag(InternalControllerInput::DPadUp, (hat_val & mapping.dpad().up()) > 0) };
+            if mapping.dpad().right() != -1 { self.set_state_flag(InternalControllerInput::DPadRight, (hat_val & mapping.dpad().right()) > 0) };
+            if mapping.dpad().down() != -1 { self.set_state_flag(InternalControllerInput::DPadDown, (hat_val & mapping.dpad().down()) > 0) };
+            if mapping.dpad().left() != -1 { self.set_state_flag(InternalControllerInput::DPadLeft, (hat_val & mapping.dpad().left()) > 0) };
+        }
+
+        return true;
+    }
+
+    fn set_state_flag(&mut self, button: InternalControllerInput, flag: bool) {
+        let bit = button as u32;
+        self.button_flags &= !(0b1 << (bit * 2));
+        self.button_flags |= (flag as u32) << (bit * 2);
     }
 }

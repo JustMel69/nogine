@@ -1,6 +1,10 @@
-use std::{sync::RwLock, path::PathBuf};
+use std::{ffi::CStr, path::PathBuf, sync::RwLock};
 
-use crate::math::vec2;
+use controller::ControllerSnapshot;
+use controller_mapping::ControllerMappings;
+use glfw::ffi::{glfwGetJoystickGUID, glfwJoystickPresent};
+
+use crate::{assert_expr, math::vec2};
 
 use super::gl_call;
 
@@ -180,22 +184,27 @@ static INPUT: RwLock<Input> = RwLock::new(Input::new());
 
 pub struct Input {
     window_in: Vec<WindowInput>,
+
     keyboard_flags: [u64; 7],
-    mouse_flags: u16,
-    scroll_in: vec2,
     written_in: String,
+
+    mouse_flags: u16,
     mouse_pos: vec2,
+    scroll_in: vec2,
+    
+    controller: Option<(ControllerMappings, ControllerSnapshot)>,
 }
 
 impl Input {
     const fn new() -> Self {
-        Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: vec2::ZERO, mouse_flags: 0, mouse_pos: vec2::ZERO }
+        Self { keyboard_flags: [0; 7], window_in: vec![], written_in: String::new(), scroll_in: vec2::ZERO, mouse_flags: 0, mouse_pos: vec2::ZERO, controller: None }
     }
 
     pub(crate) fn flush() {
         let mut writer = INPUT.write().unwrap();
         Self::flush_keyboard(&mut writer);
         Self::flush_mouse(&mut writer);
+        Self::flush_controllers(&mut writer);
 
         writer.window_in.clear();
         writer.written_in.clear();
@@ -356,6 +365,38 @@ impl Input {
         };
 
         writer.mouse_flags |= state << (bit * 2);
+    }
+
+
+
+    // |>-<·>-<|      Controller Input      |>-<·>-<| //
+
+    pub fn controller(id: usize) -> Option<ControllerSnapshot> {
+        assert_expr!(id == 0, "Only one controller is currently supported at the same time!");
+
+        let mut writer = INPUT.write().unwrap();
+        if let Some(x) = &writer.controller {
+            return Some(x.1);
+        }
+
+        if unsafe { glfwJoystickPresent(0) } > 0 {
+            let guid = unsafe { CStr::from_ptr(glfwGetJoystickGUID(0)) }.to_str().unwrap();
+            let mapping = ControllerMappings::parse(guid)?;
+            let layout = mapping.layout();
+            writer.controller = Some((mapping, ControllerSnapshot::new(layout)));
+            return Some(writer.controller.as_ref().unwrap().1);
+        }
+        
+        return None;
+    }
+
+    fn flush_controllers(writer: &mut std::sync::RwLockWriteGuard<'_, Input>) {
+        if let Some(x) = &mut writer.controller {
+            x.1.flush();
+            if !x.1.update(&x.0) {
+                writer.controller = None;
+            }
+        }
     }
 
 
