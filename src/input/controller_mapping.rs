@@ -79,6 +79,7 @@ pub struct ControllerMappings {
     r3: i32,
 
     start: i32,
+    select: i32,
 }
 
 #[cfg(target_os = "windows")] const PLATFORM: &'static str = "platform:Windows,";
@@ -127,6 +128,7 @@ impl ControllerMappings {
                     Some("rightx") => &mut res.right_stick.0,
                     Some("righty") => &mut res.right_stick.1,
                     Some("start") => &mut res.start,
+                    Some("back") => &mut res.select,
                     _ => continue,
                 };
 
@@ -219,12 +221,16 @@ impl ControllerMappings {
     pub fn start(&self) -> i32 {
         self.start
     }
+
+    pub fn select(&self) -> i32 {
+        self.select
+    }
 }
 
 impl Default for ControllerMappings {
     fn default() -> Self {
         Self {
-            layout: ControllerLayout::Xbox, name: String::new(), a: -1, b: -1, x: -1, y: -1, dpad: Default::default(), left_stick: ivec2(-1, -1), right_stick: ivec2(-1, -1), l1: -1, l2: -1, l3: -1, r1: -1, r2: -1, r3: -1, start: -1
+            layout: ControllerLayout::Xbox, name: String::new(), a: -1, b: -1, x: -1, y: -1, dpad: Default::default(), left_stick: ivec2(-1, -1), right_stick: ivec2(-1, -1), l1: -1, l2: -1, l3: -1, r1: -1, r2: -1, r3: -1, start: -1, select: -1
         }
     }
 }

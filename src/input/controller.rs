@@ -171,7 +171,7 @@ impl ControllerSnapshot {
         set_button_flag!(mapping.r3(), InternalControllerInput::R3);
 
         set_button_flag!(mapping.start(), InternalControllerInput::Start);
-        //set_button_flag!(mapping.select(), InternalControllerInput::Select);
+        set_button_flag!(mapping.select(), InternalControllerInput::Select);
 
         let mut hat_count = 0;
         let hats = unsafe { glfwGetJoystickHats(0, &mut hat_count) };
