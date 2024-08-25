@@ -4,7 +4,72 @@ use super::controller::{ControllerInput, ResolvedControllerInput};
 
 const SDL_GAMECONTROLLER_DB: &'static str = include_str!("../../vendor/SDL_GameControllerDB/gamecontrollerdb.txt");
 
-#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ControllerModel {
+    PS2Controller,
+    PS3Controller,
+    PS4Controller,
+    PS5Controller,
+
+    NSwitchController,
+    WiiUController,
+
+    Xbox360Controller,
+    XboxOneController,
+    XboxSeriesXController,
+
+    UnknownPlaystationController,
+    UnknownNintendoController,
+    UnknownXboxController,
+    Unknown,
+}
+
+impl ControllerModel {
+    pub fn by_name(str: &str) -> Self {
+        let str = str.to_lowercase();
+
+        if str.contains("dualshock 2") || str.contains("ps2") { return Self::PS2Controller };
+        if str.contains("dualshock 3") || str.contains("ps3") { return Self::PS3Controller };
+        if str.contains("dualshock 4") || str.contains("ps4") { return Self::PS4Controller };
+        if str.contains("dualshock 5") || str.contains("ps5") { return Self::PS5Controller };
+        if str.contains("playstation") { return Self::UnknownPlaystationController };
+
+        if str.contains("wii u") { return Self::WiiUController };
+        if str.contains("switch") { return Self::NSwitchController };
+        if str.contains("nintendo") { return Self::UnknownNintendoController };
+
+        if str.contains("xbox 360") { return Self::Xbox360Controller };
+        if str.contains("xbox one") { return Self::XboxOneController };
+        if str.contains("xbox series") { return Self::XboxSeriesXController };
+        if str.contains("xbox") { return Self::UnknownXboxController };
+
+        return Self::Unknown;
+    }
+
+    pub fn layout(&self) -> ControllerLayout {
+        match self {
+            ControllerModel::UnknownPlaystationController
+            | ControllerModel::PS2Controller
+            | ControllerModel::PS3Controller
+            | ControllerModel::PS4Controller
+            | ControllerModel::PS5Controller => ControllerLayout::Playstation,
+            
+            ControllerModel::UnknownNintendoController
+            | ControllerModel::NSwitchController
+            | ControllerModel::WiiUController => ControllerLayout::Nintendo,
+
+            ControllerModel::UnknownXboxController
+            | ControllerModel::Xbox360Controller
+            | ControllerModel::XboxOneController
+            | ControllerModel::XboxSeriesXController
+            | ControllerModel::Unknown => ControllerLayout::Xbox,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ControllerLayout {
     Nintendo,
     Playstation,
@@ -65,6 +130,7 @@ impl Default for DirMappings {
 
 pub struct ControllerMappings {
     layout: ControllerLayout,
+    model: ControllerModel,
     name: String,
 
     a: i32,
@@ -110,7 +176,8 @@ impl ControllerMappings {
             }
 
             res.name = split.next().unwrap().trim().to_string();
-            res.layout = ControllerLayout::by_name(&res.name);
+            res.model = ControllerModel::by_name(&res.name);
+            res.layout = res.model.layout();
 
             for tok in split {
                 let mut sep = tok.trim().split(":");
@@ -231,12 +298,16 @@ impl ControllerMappings {
     pub fn select(&self) -> i32 {
         self.select
     }
+    
+    pub fn model(&self) -> ControllerModel {
+        self.model
+    }
 }
 
 impl Default for ControllerMappings {
     fn default() -> Self {
         Self {
-            layout: ControllerLayout::Xbox, name: String::new(), a: -1, b: -1, x: -1, y: -1, dpad: Default::default(), left_stick: ivec2(-1, -1), right_stick: ivec2(-1, -1), l1: -1, l2: -1, l3: -1, r1: -1, r2: -1, r3: -1, start: -1, select: -1
+            layout: ControllerLayout::Xbox, model: ControllerModel::Unknown, name: String::new(), a: -1, b: -1, x: -1, y: -1, dpad: Default::default(), left_stick: ivec2(-1, -1), right_stick: ivec2(-1, -1), l1: -1, l2: -1, l3: -1, r1: -1, r2: -1, r3: -1, start: -1, select: -1
         }
     }
 }

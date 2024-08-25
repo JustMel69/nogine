@@ -383,7 +383,8 @@ impl Input {
             let guid = unsafe { CStr::from_ptr(glfwGetJoystickGUID(0)) }.to_str().unwrap();
             let mapping = ControllerMappings::parse(guid)?;
             let layout = mapping.layout();
-            writer.controller = Some((mapping, ControllerSnapshot::new(layout)));
+            let model = mapping.model();
+            writer.controller = Some((mapping, ControllerSnapshot::new(layout, model)));
             return Some(writer.controller.as_ref().unwrap().1);
         }
         

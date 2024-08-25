@@ -2,7 +2,7 @@ use glfw::ffi::{glfwGetJoystickAxes, glfwGetJoystickButtons, glfwGetJoystickHats
 
 use crate::math::vec2;
 
-use super::controller_mapping::{ControllerLayout, ControllerMappings};
+use super::controller_mapping::{ControllerLayout, ControllerMappings, ControllerModel};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
@@ -83,11 +83,12 @@ pub struct ControllerSnapshot {
     right_stick: vec2,
     button_flags: u32,
     layout: ControllerLayout,
+    model: ControllerModel,
 }
 
 impl ControllerSnapshot {
-    pub fn new(layout: ControllerLayout) -> Self {
-        Self { left_stick: vec2::ZERO, right_stick: vec2::ZERO, button_flags: 0, layout }
+    pub fn new(layout: ControllerLayout, model: ControllerModel) -> Self {
+        Self { left_stick: vec2::ZERO, right_stick: vec2::ZERO, button_flags: 0, layout, model }
     }
 
     pub fn left_stick(&self) -> vec2 {
@@ -100,6 +101,10 @@ impl ControllerSnapshot {
     
     pub fn layout(&self) -> ControllerLayout {
         self.layout
+    }
+
+    pub fn model(&self) -> ControllerModel {
+        self.model
     }
 
     /// Checks if the button is being pressed.
