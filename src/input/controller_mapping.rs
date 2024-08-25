@@ -1,5 +1,7 @@
 use crate::math::ivec2;
 
+use super::controller::{ControllerInput, ResolvedControllerInput};
+
 const SDL_GAMECONTROLLER_DB: &'static str = include_str!("../../vendor/SDL_GameControllerDB/gamecontrollerdb.txt");
 
 #[derive(Debug, Clone, Copy)]
@@ -22,6 +24,10 @@ impl ControllerLayout {
         }
 
         return Self::Xbox;
+    }
+
+    pub fn resolve_imput(&self, input: ControllerInput) -> ResolvedControllerInput {
+        return ResolvedControllerInput::new(input, *self);
     }
 }
 

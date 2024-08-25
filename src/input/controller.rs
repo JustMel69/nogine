@@ -36,20 +36,43 @@ pub enum ControllerInput {
     Select,
 }
 
+impl From<ResolvedControllerInput> for ControllerInput {
+    fn from(value: ResolvedControllerInput) -> Self {
+        match value {
+            ResolvedControllerInput::A => Self::A,
+            ResolvedControllerInput::B => Self::B,
+            ResolvedControllerInput::X => Self::X,
+            ResolvedControllerInput::Y => Self::Y,
+            ResolvedControllerInput::L => Self::L,
+            ResolvedControllerInput::L2 => Self::L2,
+            ResolvedControllerInput::L3 => Self::L3,
+            ResolvedControllerInput::R => Self::R,
+            ResolvedControllerInput::R2 => Self::R2,
+            ResolvedControllerInput::R3 => Self::R3,
+            ResolvedControllerInput::DPadDown => Self::DPadDown,
+            ResolvedControllerInput::DPadUp => Self::DPadUp,
+            ResolvedControllerInput::DPadRight => Self::DPadRight,
+            ResolvedControllerInput::DPadLeft => Self::DPadLeft,
+            ResolvedControllerInput::Start => Self::Start,
+            ResolvedControllerInput::Select => Self::Select,
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
-enum InternalControllerInput {
+pub enum ResolvedControllerInput {
     A, B, X, Y, L, L2, L3, R, R2, R3, DPadDown, DPadUp, DPadRight, DPadLeft, Start, Select
 }
 
-impl InternalControllerInput {
+impl ResolvedControllerInput {
     const MAPS: [&'static [Self]; 3] = [
         &[Self::A, Self::B, Self::X, Self::Y, Self::B, Self::Y, Self::A, Self::X, Self::X, Self::B, Self::A, Self::Y, Self::L, Self::L2, Self::L3, Self::R, Self::R2, Self::R3, Self::DPadDown, Self::DPadUp, Self::DPadRight, Self::DPadLeft, Self::Start, Self::Select],
         &[Self::A, Self::B, Self::X, Self::Y, Self::A, Self::X, Self::B, Self::Y, Self::Y, Self::A, Self::B, Self::X, Self::L, Self::L2, Self::L3, Self::R, Self::R2, Self::R3, Self::DPadDown, Self::DPadUp, Self::DPadRight, Self::DPadLeft, Self::Start, Self::Select],
         &[Self::A, Self::B, Self::X, Self::Y, Self::A, Self::X, Self::B, Self::Y, Self::Y, Self::A, Self::B, Self::X, Self::L, Self::L2, Self::L3, Self::R, Self::R2, Self::R3, Self::DPadDown, Self::DPadUp, Self::DPadRight, Self::DPadLeft, Self::Start, Self::Select],
     ];
     
-    fn new(input: ControllerInput, layout: ControllerLayout) -> Self {
+    pub fn new(input: ControllerInput, layout: ControllerLayout) -> Self {
         return Self::MAPS[layout as u8 as usize][input as u8 as usize];
     }
 }
@@ -81,25 +104,25 @@ impl ControllerSnapshot {
 
     /// Checks if the button is being pressed.
     pub fn button(&self, button: ControllerInput) -> bool {
-        let x = self.button_state(InternalControllerInput::new(button, self.layout));
+        let x = self.button_state(ResolvedControllerInput::new(button, self.layout));
         return x == 0b01 || x == 0b11;
     }
 
     /// Checks if the button has been released this frame.
     pub fn button_released(&self, button: ControllerInput) -> bool {
-        let x = self.button_state(InternalControllerInput::new(button, self.layout));
+        let x = self.button_state(ResolvedControllerInput::new(button, self.layout));
         return x == 0b10;
     }
     
     /// Checks if the button has started to be pressed this frame.
     pub fn button_pressed(&self, button: ControllerInput) -> bool {
-        let x = self.button_state(InternalControllerInput::new(button, self.layout));
+        let x = self.button_state(ResolvedControllerInput::new(button, self.layout));
         return x == 0b01;
     }
 
     /// Checks if the button is being held, altough for more than the current frame.
     pub fn button_hold(&self, button: ControllerInput) -> bool {
-        let x = self.button_state(InternalControllerInput::new(button, self.layout));
+        let x = self.button_state(ResolvedControllerInput::new(button, self.layout));
         return x == 0b11;
     }
 
@@ -110,7 +133,11 @@ impl ControllerSnapshot {
         return n + p;
     }
 
-    fn button_state(&self, button: InternalControllerInput) -> u8 {
+    pub fn resolve_input(&self, input: ControllerInput) -> ResolvedControllerInput {
+        self.layout.resolve_imput(input)
+    }
+
+    fn button_state(&self, button: ResolvedControllerInput) -> u8 {
         let bit = button as u32;
         return ((self.button_flags >> (bit * 2)) & 0b11) as u8;
     }
@@ -157,37 +184,37 @@ impl ControllerSnapshot {
             };
         }
 
-        set_button_flag!(mapping.a(), InternalControllerInput::A);
-        set_button_flag!(mapping.b(), InternalControllerInput::B);
-        set_button_flag!(mapping.x(), InternalControllerInput::X);
-        set_button_flag!(mapping.y(), InternalControllerInput::Y);
+        set_button_flag!(mapping.a(), ResolvedControllerInput::A);
+        set_button_flag!(mapping.b(), ResolvedControllerInput::B);
+        set_button_flag!(mapping.x(), ResolvedControllerInput::X);
+        set_button_flag!(mapping.y(), ResolvedControllerInput::Y);
 
-        set_button_flag!(mapping.l1(), InternalControllerInput::L);
-        set_button_flag!(mapping.l2(), InternalControllerInput::L2);
-        set_button_flag!(mapping.l3(), InternalControllerInput::L3);
+        set_button_flag!(mapping.l1(), ResolvedControllerInput::L);
+        set_button_flag!(mapping.l2(), ResolvedControllerInput::L2);
+        set_button_flag!(mapping.l3(), ResolvedControllerInput::L3);
 
-        set_button_flag!(mapping.r1(), InternalControllerInput::R);
-        set_button_flag!(mapping.r2(), InternalControllerInput::R2);
-        set_button_flag!(mapping.r3(), InternalControllerInput::R3);
+        set_button_flag!(mapping.r1(), ResolvedControllerInput::R);
+        set_button_flag!(mapping.r2(), ResolvedControllerInput::R2);
+        set_button_flag!(mapping.r3(), ResolvedControllerInput::R3);
 
-        set_button_flag!(mapping.start(), InternalControllerInput::Start);
-        set_button_flag!(mapping.select(), InternalControllerInput::Select);
+        set_button_flag!(mapping.start(), ResolvedControllerInput::Start);
+        set_button_flag!(mapping.select(), ResolvedControllerInput::Select);
 
         let mut hat_count = 0;
         let hats = unsafe { glfwGetJoystickHats(0, &mut hat_count) };
         
         if hat_count >= 1 {
             let hat_val = unsafe { hats.read() } as i32;
-            if mapping.dpad().up() != -1 { self.set_state_flag(InternalControllerInput::DPadUp, (hat_val & mapping.dpad().up()) > 0) };
-            if mapping.dpad().right() != -1 { self.set_state_flag(InternalControllerInput::DPadRight, (hat_val & mapping.dpad().right()) > 0) };
-            if mapping.dpad().down() != -1 { self.set_state_flag(InternalControllerInput::DPadDown, (hat_val & mapping.dpad().down()) > 0) };
-            if mapping.dpad().left() != -1 { self.set_state_flag(InternalControllerInput::DPadLeft, (hat_val & mapping.dpad().left()) > 0) };
+            if mapping.dpad().up() != -1 { self.set_state_flag(ResolvedControllerInput::DPadUp, (hat_val & mapping.dpad().up()) > 0) };
+            if mapping.dpad().right() != -1 { self.set_state_flag(ResolvedControllerInput::DPadRight, (hat_val & mapping.dpad().right()) > 0) };
+            if mapping.dpad().down() != -1 { self.set_state_flag(ResolvedControllerInput::DPadDown, (hat_val & mapping.dpad().down()) > 0) };
+            if mapping.dpad().left() != -1 { self.set_state_flag(ResolvedControllerInput::DPadLeft, (hat_val & mapping.dpad().left()) > 0) };
         }
 
         return true;
     }
 
-    fn set_state_flag(&mut self, button: InternalControllerInput, flag: bool) {
+    fn set_state_flag(&mut self, button: ResolvedControllerInput, flag: bool) {
         let bit = button as u32;
         self.button_flags &= !(0b1 << (bit * 2));
         self.button_flags |= (flag as u32) << (bit * 2);
