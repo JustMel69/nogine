@@ -1,4 +1,6 @@
 pub mod buffer;
+pub mod shader;
+pub mod program;
 
 mod gl;
 

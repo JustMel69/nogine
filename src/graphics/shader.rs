@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::{Res, assert_expr};
 
-use super::{super::gl_call, DefaultShaders};
+use super::{gl_bindings::{program::GlProgram, shader::{GlShader, GlShaderType}}, DefaultShaders};
 
 #[derive(Debug, Error)]
 pub enum ShaderError {
@@ -19,8 +19,8 @@ pub enum ShaderError {
 #[repr(u32)]
 #[derive(Debug, Clone, Copy)]
 pub enum SubShaderType {
-    Vert = gl::VERTEX_SHADER,
-    Frag = gl::FRAGMENT_SHADER,
+    Vert = GlShaderType::Vert as u32,
+    Frag = GlShaderType::Frag as u32,
 }
 
 impl Display for SubShaderType {
@@ -32,18 +32,10 @@ impl Display for SubShaderType {
     }
 }
 
-
-struct SubShaderCore(gl::types::GLuint);
-impl Drop for SubShaderCore {
-    fn drop(&mut self) {
-        gl_call!(gl::DeleteShader(self.0));
-    }
-}
-
 /// An individual component of the shading pipeline.
 #[derive(Clone)]
 pub struct SubShader {
-    core: Option<Arc<SubShaderCore>>,
+    core: Option<Arc<GlShader>>,
     kind: SubShaderType,
 }
 
@@ -54,44 +46,20 @@ impl SubShader {
     
     /// Compiles the sub shader.
     pub fn new(src: &str, kind: SubShaderType) -> Res<Self, ShaderError> {
-        let id = gl_call!(gl::CreateShader(kind as u32));
-
-        let src = CString::new(src).map_err(|e| ShaderError::from(e))?;
-        gl_call!(gl::ShaderSource(id, 1, &src.as_ptr(), std::ptr::null()));
-        gl_call!(gl::CompileShader(id));
-
-        let mut success = 0;
-        let mut info_log = [0u8; 512];
-        gl_call!(gl::GetShaderiv(id, gl::COMPILE_STATUS, &mut success));
-        if success == 0 {
-            gl_call!(gl::GetShaderInfoLog(id, 512, std::ptr::null_mut(), info_log.as_mut_ptr() as *mut i8));
-            let str_form = std::str::from_utf8(&info_log).unwrap();
-            return Err(ShaderError::CompilationError { kind, msg: str_form.into() } );
-        }
-
-        return Ok(Self { core: Some(Arc::new(SubShaderCore(id))), kind })
+        let core = GlShader::new(src, kind.into())?;
+        return Ok(Self { core: Some(Arc::new(core)), kind })
     }
 
-    fn id(&self) -> u32 {
-        return self.core.as_ref().unwrap().0;
+    fn gl_shader(&self) -> &GlShader {
+        self.core.as_ref().unwrap()
     }
 }
-
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ShaderCore(gl::types::GLuint);
-impl Drop for ShaderCore {
-    fn drop(&mut self) {
-        gl_call!(gl::DeleteProgram(self.0));
-    }
-}
-
 
 
 /// The main component of the shading pipeline. It defines how geometry must be drawn.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Shader {
-    core: Option<Arc<ShaderCore>>
+    core: Option<Arc<GlProgram>>
 }
 
 impl Shader {
@@ -104,21 +72,8 @@ impl Shader {
         assert_expr!(matches!(vert.kind, SubShaderType::Vert), "The vertex shader must be a vertex shader.");
         assert_expr!(matches!(frag.kind, SubShaderType::Frag), "The fragment shader must be a fragment shader.");
 
-        let id = gl_call!(gl::CreateProgram());
-        gl_call!(gl::AttachShader(id, vert.id()));
-        gl_call!(gl::AttachShader(id, frag.id()));
-        gl_call!(gl::LinkProgram(id));
-
-        let mut success = 0;
-        let mut info_log = [0u8; 512];
-        gl_call!(gl::GetProgramiv(id, gl::LINK_STATUS, &mut success));
-        if success == 0 {
-            gl_call!(gl::GetProgramInfoLog(id, 512, std::ptr::null_mut(), info_log.as_mut_ptr() as *mut i8));
-            let str_form = std::str::from_utf8(&info_log).unwrap();
-            return Err(ShaderError::LinkingError { msg: str_form.into() });
-        }
-
-        return Ok(Self { core: Some(Arc::new(ShaderCore(id))) });
+        let core = GlProgram::new(vert.gl_shader(), frag.gl_shader())?;
+        return Ok(Self { core: Some(Arc::new(core)) });
     }
 
     /// Creates a blit shader from a src.
@@ -128,10 +83,10 @@ impl Shader {
     }
 
     pub(super) fn enable(&self) {
-        gl_call!(gl::UseProgram(self.id()));
+        self.gl_program().enable();
     }
 
-    pub(super) fn id(&self) -> u32 {
-        self.core.as_ref().unwrap().0
+    fn gl_program(&self) -> &GlProgram {
+        self.core.as_ref().unwrap()
     }
 }
