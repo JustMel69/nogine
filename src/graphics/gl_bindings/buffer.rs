@@ -1,4 +1,6 @@
-use crate::{assert_expr, gl_call};
+use crate::gl_call;
+
+use super::{gl_enum, gl_uint};
 
 #[allow(unused)]
 #[repr(u32)] pub enum GlBufferKind {
@@ -7,8 +9,8 @@ use crate::{assert_expr, gl_call};
     UBO = gl::UNIFORM_BUFFER,
 }
 
-impl Into<gl::types::GLenum> for GlBufferKind {
-    fn into(self) -> gl::types::GLenum {
+impl Into<gl_enum> for GlBufferKind {
+    fn into(self) -> gl_enum {
         return unsafe { std::mem::transmute(self) }
     }
 }
@@ -28,16 +30,16 @@ impl Into<gl::types::GLenum> for GlBufferKind {
     DynamicCopy = gl::DYNAMIC_COPY,
 }
 
-impl Into<gl::types::GLenum> for GlBufferUsage {
-    fn into(self) -> gl::types::GLenum {
+impl Into<gl_enum> for GlBufferUsage {
+    fn into(self) -> gl_enum {
         return unsafe { std::mem::transmute(self) }
     }
 }
 
 
 pub struct GlBuffer {
-    id: gl::types::GLuint,
-    kind: gl::types::GLenum,
+    id: gl_uint,
+    kind: gl_enum,
 }
 
 impl GlBuffer {
