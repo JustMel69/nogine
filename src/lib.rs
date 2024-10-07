@@ -1,5 +1,5 @@
-#![feature(const_fn_floating_point_arithmetic)]
 #![feature(portable_simd)]
+#![allow(static_mut_refs)]
 
 pub mod window;
 pub mod input;
