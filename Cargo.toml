@@ -10,7 +10,6 @@ license = "MIT"
 [dependencies]
 colored = "2.0.4"
 fontdue = "0.8.0"
-gl = "0.14.0"
 glfw = "0.52.0"
 image = "0.24.7"
 al-sys = "0.6.1"
@@ -20,6 +19,10 @@ uuid = { version = "1.4.1", features = ["v4"] }
 gamedev-math = { git = "https://github.com/JustMel69/gamedev-math.git" }
 hound = "3.5.1"
 
+[build-dependencies]
+gl_generator = "0.14.0"
+
 [features]
+default = ["gl_debug"]
 gl_debug = []
 al_debug = []
