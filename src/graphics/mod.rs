@@ -1,5 +1,7 @@
 use std::sync::RwLock;
 
+use gl_bindings::{gl_enable_blend, gl_set_blend, GlBlendingMode};
+
 use crate::{assert_expr, color::{Color, Color4}, graphics::defaults::{DefaultMaterials, DefaultShaders}, log_info, math::{mat3, quad::Quad, uvec2, vec2, Rect}, window::Window};
 
 use self::{material::Material, pipeline::{RenderPipeline, RenderTexture}, render_scope::{RenderScope, Snapping}, texture::{Sprite, Texture}, ui::{text::{SourcedFromGraphics, Text}, UI}};
@@ -21,9 +23,7 @@ pub mod consts;
 mod buffers;
 mod verts;
 mod batch;
-mod gl_bindings {
-    pub mod buffer;
-}
+mod gl_bindings;
 
 
 static GRAPHICS: RwLock<Graphics> = RwLock::new(Graphics::new());
@@ -83,8 +83,8 @@ impl Graphics {
     pub(crate) fn init() {
         DefaultShaders::init();
         DefaultMaterials::init();
-        
-        gl_call!(gl::Enable(gl::BLEND));
+
+        gl_enable_blend(); 
         Self::set_blending_mode(BlendingMode::AlphaMix);
 
         log_info!("Graphics initialized.");
@@ -353,9 +353,9 @@ pub enum BlendingMode {
 impl BlendingMode {
     pub(super) fn apply(&self) {
         match self {
-            BlendingMode::AlphaMix => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA)),
-            BlendingMode::Additive => gl_call!(gl::BlendFunc(gl::SRC_ALPHA, gl::ONE)),
-            BlendingMode::Multiplicative => gl_call!(gl::BlendFunc(gl::DST_COLOR, gl::ZERO)),
+            BlendingMode::AlphaMix => gl_set_blend(GlBlendingMode::AlphaMix),
+            BlendingMode::Additive => gl_set_blend(GlBlendingMode::Additive),
+            BlendingMode::Multiplicative => gl_set_blend(GlBlendingMode::Multiplicative),
         }
     }
 }
